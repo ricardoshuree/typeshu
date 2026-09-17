@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:33:02
-// Menu com Find in Files Ctrl+Shift+F → envia ui:global-search
-// Menu com Ctrl+P (Open Quickly) e Ctrl+Shift+F (Global Search)
+// [mcp-local harness] feature: fix-scroll-menu | plano: 35711c5b | 2026-09-17 15:48:02
+// Menu completo: File (com Export), Edit, Format (Bold/Italic/Headings), View (todos os modos) — atalhos documentados
+// Menu completo com todos os atalhos implementados no app
 import { Menu, BrowserWindow, app, dialog } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { IPC } from '../shared/types'
@@ -10,6 +10,8 @@ const RESULT = {
   FILE_SAVED:     'file:saved',
   OPEN_QUICKLY:   'ui:open-quickly',
   GLOBAL_SEARCH:  'ui:global-search',
+  EXPORT_PDF:     'ui:export-pdf',
+  EXPORT_HTML:    'ui:export-html',
 } as const
 
 function getWin(): BrowserWindow | null {
@@ -49,50 +51,88 @@ async function saveFileAs(content: string): Promise<string | null> {
 
 export function buildMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
+    // ── File ──────────────────────────────────────────────────────────────
     {
       label: 'File',
       submenu: [
-        { label: 'New',          accelerator: 'CmdOrCtrl+N',       click: () => getWin()?.webContents.send(IPC.FILE_NEW) },
+        { label: 'New',           accelerator: 'CmdOrCtrl+N',       click: () => getWin()?.webContents.send(IPC.FILE_NEW) },
         { type: 'separator' },
-        { label: 'Open...',      accelerator: 'CmdOrCtrl+O',       click: () => openFile() },
-        { label: 'Open Quickly', accelerator: 'CmdOrCtrl+P',       click: () => getWin()?.webContents.send(RESULT.OPEN_QUICKLY) },
+        { label: 'Open...',       accelerator: 'CmdOrCtrl+O',       click: () => openFile() },
+        { label: 'Open Quickly',  accelerator: 'CmdOrCtrl+P',       click: () => getWin()?.webContents.send(RESULT.OPEN_QUICKLY) },
         { type: 'separator' },
-        { label: 'Save',         accelerator: 'CmdOrCtrl+S',       click: () => getWin()?.webContents.send(IPC.FILE_SAVE) },
-        { label: 'Save As...',   accelerator: 'CmdOrCtrl+Shift+S', click: () => getWin()?.webContents.send(IPC.FILE_SAVE_AS) },
+        { label: 'Save',          accelerator: 'CmdOrCtrl+S',       click: () => getWin()?.webContents.send(IPC.FILE_SAVE) },
+        { label: 'Save As...',    accelerator: 'CmdOrCtrl+Shift+S', click: () => getWin()?.webContents.send(IPC.FILE_SAVE_AS) },
+        { type: 'separator' },
+        {
+          label: 'Export',
+          submenu: [
+            { label: 'Export as PDF...',  accelerator: 'CmdOrCtrl+Shift+E', click: () => getWin()?.webContents.send(RESULT.EXPORT_PDF) },
+            { label: 'Export as HTML...', click: () => getWin()?.webContents.send(RESULT.EXPORT_HTML) },
+          ],
+        },
         { type: 'separator' },
         { label: 'Quit', accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Alt+F4', click: () => app.quit() },
       ],
     },
+
+    // ── Edit ──────────────────────────────────────────────────────────────
     {
       label: 'Edit',
       submenu: [
-        { label: 'Undo',         accelerator: 'CmdOrCtrl+Z',       role: 'undo' },
-        { label: 'Redo',         accelerator: 'CmdOrCtrl+Shift+Z', role: 'redo' },
+        { label: 'Undo',          accelerator: 'CmdOrCtrl+Z',         role: 'undo' },
+        { label: 'Redo',          accelerator: 'CmdOrCtrl+Shift+Z',   role: 'redo' },
         { type: 'separator' },
-        { label: 'Cut',          accelerator: 'CmdOrCtrl+X',       role: 'cut' },
-        { label: 'Copy',         accelerator: 'CmdOrCtrl+C',       role: 'copy' },
-        { label: 'Paste',        accelerator: 'CmdOrCtrl+V',       role: 'paste' },
+        { label: 'Cut',           accelerator: 'CmdOrCtrl+X',         role: 'cut' },
+        { label: 'Copy',          accelerator: 'CmdOrCtrl+C',         role: 'copy' },
+        { label: 'Paste',         accelerator: 'CmdOrCtrl+V',         role: 'paste' },
         { type: 'separator' },
-        { label: 'Select All',   accelerator: 'CmdOrCtrl+A',       role: 'selectAll' },
+        { label: 'Select All',    accelerator: 'CmdOrCtrl+A',         role: 'selectAll' },
         { type: 'separator' },
-        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => getWin()?.webContents.send(RESULT.GLOBAL_SEARCH) },
+        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F',   click: () => getWin()?.webContents.send(RESULT.GLOBAL_SEARCH) },
       ],
     },
+
+    // ── Format ────────────────────────────────────────────────────────────
+    {
+      label: 'Format',
+      submenu: [
+        { label: 'Bold',          accelerator: 'CmdOrCtrl+B',         click: () => getWin()?.webContents.send('format:bold') },
+        { label: 'Italic',        accelerator: 'CmdOrCtrl+I',         click: () => getWin()?.webContents.send('format:italic') },
+        { type: 'separator' },
+        { label: 'Heading 1',     accelerator: 'CmdOrCtrl+1',         click: () => getWin()?.webContents.send('format:heading', 1) },
+        { label: 'Heading 2',     accelerator: 'CmdOrCtrl+2',         click: () => getWin()?.webContents.send('format:heading', 2) },
+        { label: 'Heading 3',     accelerator: 'CmdOrCtrl+3',         click: () => getWin()?.webContents.send('format:heading', 3) },
+        { label: 'Heading 4',     accelerator: 'CmdOrCtrl+4',         click: () => getWin()?.webContents.send('format:heading', 4) },
+        { label: 'Heading 5',     accelerator: 'CmdOrCtrl+5',         click: () => getWin()?.webContents.send('format:heading', 5) },
+        { label: 'Heading 6',     accelerator: 'CmdOrCtrl+6',         click: () => getWin()?.webContents.send('format:heading', 6) },
+        { label: 'Paragraph',     accelerator: 'CmdOrCtrl+Shift+0',   click: () => getWin()?.webContents.send('format:heading', 0) },
+      ],
+    },
+
+    // ── View ──────────────────────────────────────────────────────────────
     {
       label: 'View',
       submenu: [
-        { label: 'Reload',            accelerator: 'CmdOrCtrl+R',    role: 'reload' },
-        { label: 'Toggle DevTools',   accelerator: 'F12',            role: 'toggleDevTools' },
+        { label: 'Toggle Sidebar',     accelerator: 'CmdOrCtrl+\\',        click: () => getWin()?.webContents.send('view:toggle-sidebar') },
+        { label: 'Source Code Mode',   accelerator: 'CmdOrCtrl+/',         click: () => getWin()?.webContents.send('view:toggle-source') },
         { type: 'separator' },
-        { label: 'Zoom In',           accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
-        { label: 'Zoom Out',          accelerator: 'CmdOrCtrl+-',    role: 'zoomOut' },
-        { label: 'Reset Zoom',        accelerator: 'CmdOrCtrl+0',    role: 'resetZoom' },
+        { label: 'Focus Mode',         accelerator: 'F8',                  click: () => getWin()?.webContents.send('view:toggle-focus') },
+        { label: 'Typewriter Mode',    accelerator: 'F9',                  click: () => getWin()?.webContents.send('view:toggle-typewriter') },
+        { label: 'Toggle Fullscreen',  accelerator: 'F11',                 role: 'togglefullscreen' },
         { type: 'separator' },
-        { label: 'Toggle Fullscreen', accelerator: 'F11',            role: 'togglefullscreen' },
+        { label: 'Reload',             accelerator: 'CmdOrCtrl+R',         role: 'reload' },
+        { label: 'Toggle DevTools',    accelerator: 'F12',                 role: 'toggleDevTools' },
+        { type: 'separator' },
+        { label: 'Zoom In',            accelerator: 'CmdOrCtrl+Plus',      role: 'zoomIn' },
+        { label: 'Zoom Out',           accelerator: 'CmdOrCtrl+-',         role: 'zoomOut' },
+        { label: 'Reset Zoom',         accelerator: 'CmdOrCtrl+0',         role: 'resetZoom' },
       ],
     },
+
+    // ── Window ────────────────────────────────────────────────────────────
     { label: 'Window', role: 'window', submenu: [{ label: 'Minimize', role: 'minimize' }, { label: 'Close', role: 'close' }] },
   ]
+
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 

@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:32:43
-// Preload com searchFiles e canal ui:global-search na whitelist
+// [mcp-local harness] feature: fix-menu-channels | plano: 7f4727c6 | 2026-09-17 15:48:23
+// Preload com todos os canais do menu Format, View e Export
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
 
@@ -9,7 +9,18 @@ const LISTEN_CHANNELS = [
   IPC.FILE_SAVE_AS,
   'file:opened',
   'ui:open-quickly',
-  'ui:global-search',   // ← Ctrl+Shift+F abre o painel Global Search
+  'ui:global-search',
+  'ui:export-pdf',
+  'ui:export-html',
+  // Canais do menu Format
+  'format:bold',
+  'format:italic',
+  'format:heading',
+  // Canais do menu View
+  'view:toggle-sidebar',
+  'view:toggle-source',
+  'view:toggle-focus',
+  'view:toggle-typewriter',
 ] as const
 
 type ListenChannel = typeof LISTEN_CHANNELS[number]

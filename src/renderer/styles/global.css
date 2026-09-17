@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:35:46
-// CSS com Global Search panel — header, input, case button, resultados agrupados por arquivo com highlight
+// [mcp-local harness] feature: fix-scroll-menu | plano: 35711c5b | 2026-09-17 15:47:17
+// Corrigir scroll duplo com overflow:hidden no html/body/root + CSS @media print para exportação
 // CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open e global search
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,8 +44,17 @@
   }
 }
 
-/* ── Base ──────────────────────────────────────────────────────────────── */
-html, body, #root { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: var(--font-size); line-height: var(--line-height); -webkit-font-smoothing: antialiased; }
+/* ── Base — overflow:hidden evita scroll duplo no body ─────────────────── */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;   /* ← impede o body de criar barra de scroll própria */
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  -webkit-font-smoothing: antialiased;
+}
 
 /* ── Layout shell ──────────────────────────────────────────────────────── */
 .app-shell { display: flex; height: 100vh; overflow: hidden; background: var(--bg); }
@@ -175,172 +184,45 @@ html, body, #root { height: 100%; background: var(--bg); color: var(--text); fon
 .qo-footer-keys { opacity: 0.7; }
 
 /* ── Global Search ─────────────────────────────────────────────────────── */
-.gs-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.gs-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 12px 6px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.gs-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-}
-
-.gs-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 13px;
-  padding: 2px 4px;
-  border-radius: var(--radius);
-  line-height: 1;
-}
+.gs-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.gs-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px 6px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.gs-title { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--text-muted); }
+.gs-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; padding: 2px 4px; border-radius: var(--radius); line-height: 1; }
 .gs-close:hover { background: var(--border); color: var(--text); }
-
-.gs-input-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.gs-input {
-  flex: 1;
-  background: var(--bg-editor);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 5px 8px;
-  font-size: 13px;
-  color: var(--text);
-  outline: none;
-  font-family: var(--font-ui);
-  min-width: 0;
-}
+.gs-input-wrap { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.gs-input { flex: 1; background: var(--bg-editor); border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 8px; font-size: 13px; color: var(--text); outline: none; font-family: var(--font-ui); min-width: 0; }
 .gs-input:focus { border-color: var(--accent); }
 .gs-input::placeholder { color: var(--text-muted); }
 .gs-input:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.gs-case-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 4px 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
+.gs-case-btn { background: none; border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 7px; font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; flex-shrink: 0; white-space: nowrap; }
 .gs-case-btn:hover { border-color: var(--accent); color: var(--accent); }
 .gs-case-btn--active { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); color: var(--accent); }
-
-.gs-results {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.gs-empty {
-  padding: 20px 14px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-  line-height: 1.5;
-}
-
-.gs-summary {
-  padding: 6px 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-}
-
-/* Grupo por arquivo */
+.gs-results { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.gs-empty { padding: 20px 14px; font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.5; }
+.gs-summary { padding: 6px 12px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
 .gs-file-group { border-bottom: 1px solid var(--border); }
-
-.gs-file-header {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  cursor: pointer;
-  font-size: 12px;
-  background: color-mix(in srgb, var(--bg-sidebar) 60%, var(--bg-editor));
-  user-select: none;
-}
+.gs-file-header { display: flex; align-items: center; gap: 5px; padding: 5px 10px; cursor: pointer; font-size: 12px; background: color-mix(in srgb, var(--bg-sidebar) 60%, var(--bg-editor)); user-select: none; }
 .gs-file-header:hover { background: var(--border); }
-
 .gs-file-arrow { font-size: 9px; color: var(--text-muted); flex-shrink: 0; }
 .gs-file-name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .gs-file-path { font-size: 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); max-width: 120px; }
-.gs-file-count {
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 6px;
-  flex-shrink: 0;
-}
-
-/* Linhas de match */
+.gs-file-count { background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 6px; flex-shrink: 0; }
 .gs-matches { background: var(--bg-editor); }
+.gs-match-row { display: flex; align-items: baseline; gap: 8px; padding: 3px 10px 3px 20px; cursor: pointer; font-size: 12px; border-left: 2px solid transparent; transition: background 0.08s; }
+.gs-match-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); border-left-color: var(--accent); }
+.gs-line-num { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); flex-shrink: 0; min-width: 24px; text-align: right; }
+.gs-line-text { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; font-family: var(--font-mono); }
+.gs-match { background: color-mix(in srgb, #e8c97a 30%, transparent); color: #e8c97a; border-radius: 2px; padding: 0 1px; font-weight: 600; }
 
-.gs-match-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 10px 3px 20px;
-  cursor: pointer;
-  font-size: 12px;
-  border-left: 2px solid transparent;
-  transition: background 0.08s;
-}
-.gs-match-row:hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-left-color: var(--accent);
-}
-
-.gs-line-num {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  min-width: 24px;
-  text-align: right;
-}
-
-.gs-line-text {
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  font-family: var(--font-mono);
-}
-
-.gs-match {
-  background: color-mix(in srgb, #e8c97a 30%, transparent);
-  color: #e8c97a;
-  border-radius: 2px;
-  padding: 0 1px;
-  font-weight: 600;
+/* ── Print / Export PDF ────────────────────────────────────────────────── */
+@media print {
+  .app-shell { display: block; height: auto; overflow: visible; }
+  .sidebar, .status-bar, .front-matter-panel { display: none !important; }
+  .editor-area { height: auto; overflow: visible; }
+  .milkdown-root { overflow: visible; padding: 0; height: auto; }
+  .ProseMirror { max-width: 100%; padding-bottom: 0; }
+  .mermaid-block { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
 }
 
 /* ── Seleção ───────────────────────────────────────────────────────────── */
