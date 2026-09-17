@@ -1,6 +1,6 @@
 <!--
-[mcp-local harness] feature: rename-typeshudown | plano: 295d64b0 | 2026-09-17 12:09:21
-Rename para TypeShuDown no index.html
+[mcp-local harness] feature: mermaid-katex | plano: 300c11d7 | 2026-09-17 14:55:26
+CSP atualizada: unsafe-eval para Mermaid, img-src data:/blob: para SVG inline
 -->
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -9,7 +9,7 @@ Rename para TypeShuDown no index.html
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src blob:"
     />
     <title>TypeShuDown</title>
   </head>

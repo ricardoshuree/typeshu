@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: file-open-save | plano: 3a60f196 | 2026-09-17 12:28:20
-// Registrar buildMenu no main process
-import { app, BrowserWindow, shell } from 'electron'
+// [mcp-local harness] feature: fix-mermaid-csp | plano: 239915e0 | 2026-09-17 14:59:52
+// CSP via session.webRequest com unsafe-eval para Mermaid funcionar no Electron
+import { app, BrowserWindow, shell, session } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
 import { buildMenu } from './menu'
@@ -20,7 +20,7 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
     }
   })
 
@@ -37,11 +37,29 @@ function createWindow(): BrowserWindow {
   }
 
   win.once('ready-to-show', () => win.show())
-
   return win
 }
 
 app.whenReady().then(() => {
+  // ── CSP: permite unsafe-eval para Mermaid (geração de SVG via eval) ──
+  // O Electron ignora a meta http-equiv CSP no renderer e aplica a do
+  // session.webRequest. Em dev o servidor Vite também envia cabeçalhos.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; " +
+          "script-src 'self' 'unsafe-eval' 'unsafe-inline'; " +
+          "style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: blob:; " +
+          "worker-src blob:; " +
+          "font-src 'self' data:"
+        ],
+      },
+    })
+  })
+
   registerIpcHandlers()
   buildMenu()
   createWindow()

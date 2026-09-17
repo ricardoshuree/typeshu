@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: outline-panel | plano: af178e3c | 2026-09-17 14:45:24
-// CSS com abas sidebar (FILES/OUTLINE) e estilos do outline panel
-// CSS com estilos da sidebar (tabs, file tree, outline), status bar, front matter e task list
+// [mcp-local harness] feature: mermaid-katex | plano: 300c11d7 | 2026-09-17 14:56:28
+// CSS com estilos de mermaid block e katex math
+// CSS com sidebar, outline, status bar, front matter, task list, mermaid e katex
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -56,391 +56,168 @@ html, body, #root {
 }
 
 /* ── Layout shell ──────────────────────────────────────────────────────── */
-.app-shell {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--bg);
-}
-
-.editor-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
-}
+.app-shell { display: flex; height: 100vh; overflow: hidden; background: var(--bg); }
+.editor-area { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
 
 /* ── Sidebar ───────────────────────────────────────────────────────────── */
-.sidebar {
-  width: var(--sidebar-w);
-  min-width: var(--sidebar-w);
-  height: 100%;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  user-select: none;
-}
-
-/* Abas FILES / OUTLINE */
-.sidebar-tabs {
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  flex-shrink: 0;
-}
-
-.sidebar-tab {
-  flex: 1;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: 7px 4px 5px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.1s, border-color 0.1s;
-}
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); height: 100%; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+.sidebar-tabs { display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); flex-shrink: 0; }
+.sidebar-tab { flex: 1; background: none; border: none; border-bottom: 2px solid transparent; padding: 7px 4px 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--text-muted); cursor: pointer; transition: color 0.1s, border-color 0.1s; }
 .sidebar-tab:hover { color: var(--text); }
-.sidebar-tab--active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  min-height: 28px;
-}
-
-.sidebar-title {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.sidebar-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1;
-  padding: 2px 4px;
-  border-radius: var(--radius);
-  flex-shrink: 0;
-}
+.sidebar-tab--active { color: var(--accent); border-bottom-color: var(--accent); }
+.sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--border); min-height: 28px; }
+.sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.sidebar-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; line-height: 1; padding: 2px 4px; border-radius: var(--radius); flex-shrink: 0; }
 .sidebar-btn:hover { background: var(--border); color: var(--text); }
-
-.sidebar-tree {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 4px 0;
-}
-
-.sidebar-empty {
-  padding: 24px 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.sidebar-open-btn {
-  margin-top: 12px;
-  padding: 6px 14px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 13px;
-}
+.sidebar-tree { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 0; }
+.sidebar-empty { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.sidebar-open-btn { margin-top: 12px; padding: 6px 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); cursor: pointer; font-size: 13px; }
 .sidebar-open-btn:hover { opacity: 0.85; }
 
 /* ── File Tree ─────────────────────────────────────────────────────────── */
-.tree-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-radius: 0;
-}
+.tree-item { display: flex; align-items: center; gap: 4px; height: 26px; cursor: pointer; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 0; }
 .tree-item:hover { background: var(--border); }
-.tree-item--active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent);
-}
+.tree-item--active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .tree-item--dir { font-weight: 500; }
-
-.tree-icon {
-  font-size: 10px;
-  width: 12px;
-  text-align: center;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.tree-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tree-empty {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 4px 0;
-  font-style: italic;
-}
+.tree-icon { font-size: 10px; width: 12px; text-align: center; color: var(--text-muted); flex-shrink: 0; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-empty { font-size: 12px; color: var(--text-muted); padding: 4px 0; font-style: italic; }
 
 /* ── Outline Panel ─────────────────────────────────────────────────────── */
 .outline-list { padding: 4px 0; }
-
-.outline-item {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-height: 26px;
-  padding-top: 3px;
-  padding-bottom: 3px;
-  padding-right: 10px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text);
-  border-radius: 0;
-  transition: background 0.1s;
-}
+.outline-item { display: flex; align-items: baseline; gap: 6px; min-height: 26px; padding-top: 3px; padding-bottom: 3px; padding-right: 10px; cursor: pointer; font-size: 13px; color: var(--text); border-radius: 0; transition: background 0.1s; }
 .outline-item:hover { background: var(--border); }
-
-.outline-bullet {
-  font-size: 9px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  line-height: 1.8;
-}
-
-.outline-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  line-height: 1.4;
-}
-
-/* Tamanho visual por nível */
+.outline-bullet { font-size: 9px; color: var(--text-muted); flex-shrink: 0; line-height: 1.8; }
+.outline-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; line-height: 1.4; }
 .outline-item--h1 { font-weight: 600; font-size: 13px; }
 .outline-item--h2 { font-size: 12px; }
 .outline-item--h3 { font-size: 12px; color: var(--text-muted); }
-.outline-item--h4,
-.outline-item--h5,
-.outline-item--h6 { font-size: 11px; color: var(--text-muted); }
+.outline-item--h4, .outline-item--h5, .outline-item--h6 { font-size: 11px; color: var(--text-muted); }
 
 /* ── Editor / Milkdown ─────────────────────────────────────────────────── */
-.milkdown-root {
-  flex: 1;
-  overflow-y: auto;
-  padding: 48px 24px;
-  background: var(--bg-editor);
-  min-height: 0;
-  scroll-behavior: smooth;
-}
-
-.source-editor {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  padding: 48px 24px;
-  background: var(--bg-editor);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1.6;
-  border: none;
-  outline: none;
-  resize: none;
-  white-space: pre;
-  overflow: auto;
-}
-
+.milkdown-root { flex: 1; overflow-y: auto; padding: 48px 24px; background: var(--bg-editor); min-height: 0; scroll-behavior: smooth; }
+.source-editor { flex: 1; width: 100%; min-height: 0; padding: 48px 24px; background: var(--bg-editor); color: var(--text); font-family: var(--font-mono); font-size: 14px; line-height: 1.6; border: none; outline: none; resize: none; white-space: pre; overflow: auto; }
 .milkdown { width: 100%; min-height: 100%; }
 
 /* ── ProseMirror ───────────────────────────────────────────────────────── */
-.ProseMirror {
-  max-width: var(--editor-width);
-  margin: 0 auto;
-  font-family: var(--font-editor);
-  font-size: var(--font-size);
-  line-height: var(--line-height);
-  color: var(--text);
-  outline: none;
-  min-height: 60vh;
-  padding-bottom: 200px;
-  cursor: text;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.ProseMirror h1,.ProseMirror h2,.ProseMirror h3,
-.ProseMirror h4,.ProseMirror h5,.ProseMirror h6 {
-  font-family: var(--font-ui);
-  font-weight: 600;
-  color: var(--text);
-  margin: 1.2em 0 0.4em;
-  line-height: 1.3;
-  white-space: normal;
-}
-.ProseMirror h1 { font-size: 2em; }
-.ProseMirror h2 { font-size: 1.5em; }
-.ProseMirror h3 { font-size: 1.25em; }
+.ProseMirror { max-width: var(--editor-width); margin: 0 auto; font-family: var(--font-editor); font-size: var(--font-size); line-height: var(--line-height); color: var(--text); outline: none; min-height: 60vh; padding-bottom: 200px; cursor: text; white-space: pre-wrap; word-wrap: break-word; }
+.ProseMirror h1,.ProseMirror h2,.ProseMirror h3,.ProseMirror h4,.ProseMirror h5,.ProseMirror h6 { font-family: var(--font-ui); font-weight: 600; color: var(--text); margin: 1.2em 0 0.4em; line-height: 1.3; white-space: normal; }
+.ProseMirror h1 { font-size: 2em; } .ProseMirror h2 { font-size: 1.5em; } .ProseMirror h3 { font-size: 1.25em; }
 .ProseMirror p  { margin: 0.75em 0; white-space: pre-wrap; }
 .ProseMirror a  { color: var(--accent); text-decoration: underline; }
-.ProseMirror strong { font-weight: 700; }
-.ProseMirror em     { font-style: italic; }
-
-.ProseMirror code {
-  font-family: var(--font-mono);
-  font-size: 0.875em;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.1em 0.4em;
-  white-space: nowrap;
-}
-.ProseMirror pre {
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1em;
-  overflow-x: auto;
-  margin: 1em 0;
-  white-space: pre;
-}
-.ProseMirror pre code {
-  background: none;
-  border: none;
-  padding: 0;
-  white-space: pre;
-  display: block;
-}
-
-.ProseMirror blockquote {
-  border-left: 3px solid var(--border);
-  padding-left: 1em;
-  color: var(--text-muted);
-  margin: 0.75em 0;
-  white-space: normal;
-}
+.ProseMirror strong { font-weight: 700; } .ProseMirror em { font-style: italic; }
+.ProseMirror code { font-family: var(--font-mono); font-size: 0.875em; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.1em 0.4em; white-space: nowrap; }
+.ProseMirror pre { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: var(--radius); padding: 1em; overflow-x: auto; margin: 1em 0; white-space: pre; }
+.ProseMirror pre code { background: none; border: none; padding: 0; white-space: pre; display: block; }
+.ProseMirror blockquote { border-left: 3px solid var(--border); padding-left: 1em; color: var(--text-muted); margin: 0.75em 0; white-space: normal; }
 .ProseMirror ul,.ProseMirror ol { padding-left: 1.5em; margin: 0.5em 0; }
 .ProseMirror li { margin: 0.25em 0; }
 .ProseMirror table { border-collapse: collapse; width: 100%; margin: 1em 0; white-space: normal; }
 .ProseMirror th,.ProseMirror td { border: 1px solid var(--border); padding: 0.5em 0.75em; text-align: left; }
 .ProseMirror th { background: var(--bg-sidebar); font-weight: 600; }
 .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
-
-.ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
-  pointer-events: none;
-  float: left;
-  height: 0;
-}
+.ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-muted); pointer-events: none; float: left; height: 0; }
 
 /* ── Task List ─────────────────────────────────────────────────────────── */
-.ProseMirror ul[data-type="taskList"],
-.ProseMirror ul.task-list { list-style: none; padding-left: 0.25em; }
+.ProseMirror ul[data-type="taskList"],.ProseMirror ul.task-list { list-style: none; padding-left: 0.25em; }
 .ProseMirror li[data-checked] { display: flex; align-items: flex-start; gap: 0.5em; }
 .ProseMirror li[data-checked] > input[type="checkbox"] { cursor: pointer; margin-top: 0.3em; flex-shrink: 0; }
-.ProseMirror li[data-checked="true"] > div,
-.ProseMirror li[data-checked="true"] > p { text-decoration: line-through; color: var(--text-muted); }
+.ProseMirror li[data-checked="true"] > div,.ProseMirror li[data-checked="true"] > p { text-decoration: line-through; color: var(--text-muted); }
 
-/* ── YAML Front Matter ─────────────────────────────────────────────────── */
-.front-matter-panel {
+/* ── Mermaid ───────────────────────────────────────────────────────────── */
+.mermaid-block {
   max-width: var(--editor-width);
-  margin: 0 auto 1.5em;
+  margin: 1em auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-sidebar);
   overflow: hidden;
+}
+
+.mermaid-render {
+  padding: 16px;
+  cursor: pointer;
+  text-align: center;
+  transition: opacity 0.2s;
+  min-height: 48px;
+}
+.mermaid-render:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.mermaid-render svg { max-width: 100%; height: auto; }
+
+.mermaid-editor {
+  border-top: 1px solid var(--border);
+  background: var(--bg-editor);
+  padding: 8px;
+}
+
+.mermaid-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px 6px;
+  font-family: var(--font-ui);
+}
+
+.mermaid-textarea {
+  width: 100%;
+  background: var(--bg-sidebar);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  resize: vertical;
+  outline: none;
 }
-.front-matter-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+.mermaid-textarea:focus { border-color: var(--accent); }
+
+.mermaid-error {
+  padding: 12px;
+  color: #e06c75;
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+.mermaid-error pre { margin-top: 6px; white-space: pre-wrap; font-size: 12px; opacity: 0.8; }
+
+/* ── KaTeX Math ────────────────────────────────────────────────────────── */
+/* O CSS base do KaTeX é importado via JS (import 'katex/dist/katex.min.css') */
+/* Ajustes de integração com o tema: */
+.ProseMirror .math-node {
   cursor: pointer;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-family: var(--font-ui);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  user-select: none;
-  border-bottom: 1px solid transparent;
-  transition: background 0.1s;
+  padding: 0 2px;
+  border-radius: 2px;
 }
+.ProseMirror .math-node:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* Math block ($$...$$) — centralizado */
+.ProseMirror .math-block {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  padding: 0.5em;
+  overflow-x: auto;
+}
+
+/* ── YAML Front Matter ─────────────────────────────────────────────────── */
+.front-matter-panel { max-width: var(--editor-width); margin: 0 auto 1.5em; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-sidebar); overflow: hidden; font-family: var(--font-mono); font-size: 13px; }
+.front-matter-header { display: flex; align-items: center; gap: 6px; padding: 6px 12px; cursor: pointer; color: var(--text-muted); font-size: 11px; font-family: var(--font-ui); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; user-select: none; border-bottom: 1px solid transparent; transition: background 0.1s; }
 .front-matter-header:hover { background: var(--border); }
 .front-matter-panel.is-expanded .front-matter-header { border-bottom-color: var(--border); }
 .front-matter-icon { font-size: 10px; }
-.front-matter-body {
-  display: none;
-  padding: 10px 14px;
-  color: var(--text-muted);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+.front-matter-body { display: none; padding: 10px 14px; color: var(--text-muted); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .front-matter-panel.is-expanded .front-matter-body { display: block; }
 
 /* ── Focus Mode ────────────────────────────────────────────────────────── */
 .focus-mode .ProseMirror > * { opacity: 0.25; transition: opacity 0.15s ease; }
-.focus-mode .ProseMirror > .has-focus,
-.focus-mode .ProseMirror > *:focus-within { opacity: 1; }
+.focus-mode .ProseMirror > .has-focus,.focus-mode .ProseMirror > *:focus-within { opacity: 1; }
 .focus-mode .ProseMirror:not(:focus-within) > * { opacity: 1; }
 
 /* ── Typewriter Mode ───────────────────────────────────────────────────── */
 .typewriter-mode .milkdown-root { padding-top: 45vh; padding-bottom: 45vh; }
 
 /* ── Status Bar ────────────────────────────────────────────────────────── */
-.status-bar {
-  height: var(--statusbar-h);
-  min-height: var(--statusbar-h);
-  flex-shrink: 0;
-  background: var(--bg-statusbar);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  color: var(--text-statusbar);
-  user-select: none;
-  gap: 16px;
-}
+.status-bar { height: var(--statusbar-h); min-height: var(--statusbar-h); flex-shrink: 0; background: var(--bg-statusbar); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 12px; font-family: var(--font-mono); color: var(--text-statusbar); user-select: none; gap: 16px; }
 .status-file { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; opacity: 0.7; }
 .status-counts { white-space: nowrap; flex-shrink: 0; }
 

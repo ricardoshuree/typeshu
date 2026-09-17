@@ -1,7 +1,7 @@
-// [mcp-local harness] feature: tasklist-frontmatter | plano: 33f8e29e | 2026-09-17 14:21:29
-// MilkdownAdapter com taskListPlugin e frontMatterPlugin integrados via $prose
+// [mcp-local harness] feature: mermaid-katex | plano: 300c11d7 | 2026-09-17 14:55:20
+// MilkdownAdapter com math (KaTeX) e mermaid integrados
 // Bold/italic via ProseMirror EditorView direto, F8/F9 via handleDOMEvents
-// Auto-pair, task list clicável e YAML front matter via plugins ProseMirror
+// Auto-pair, task list, front matter, mermaid e KaTeX via plugins
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -11,12 +11,17 @@ import { commonmark, wrapInHeadingCommand } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
+import { math } from '@milkdown/plugin-math'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { callCommand, $prose } from '@milkdown/utils'
 import { createAutoPairPlugin }    from './autoPairPlugin'
 import { createTaskListPlugin }    from './taskListPlugin'
 import { createFrontMatterPlugin } from './frontMatterPlugin'
+import { createMermaidPlugin }     from './mermaidPlugin'
 import type { EditorProps } from './EditorAdapter'
+
+// KaTeX CSS — carregado dinamicamente para não poluir o bundle principal
+import 'katex/dist/katex.min.css'
 
 export interface EditorHandle {
   toggleBold:   () => void
@@ -38,10 +43,11 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
   onChangeRef.current  = onChange
   onKeyDownRef.current = onKeyDown
 
-  // Plugins instanciados uma vez (estáveis entre re-renders)
+  // Plugins instanciados uma vez
   const autoPairSlice    = useRef($prose(() => createAutoPairPlugin()))
   const taskListSlice    = useRef($prose(() => createTaskListPlugin()))
   const frontMatterSlice = useRef($prose(() => createFrontMatterPlugin()))
+  const mermaidSlice     = useRef($prose(() => createMermaidPlugin()))
 
   const { get } = useEditor((root) =>
     Editor.make()
@@ -72,9 +78,11 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       .use(gfm)
       .use(history)
       .use(listener)
+      .use(math)                        // KaTeX: $...$ e $$...$$
       .use(autoPairSlice.current)       // auto-pair de delimitadores
       .use(taskListSlice.current)       // task list clicável
-      .use(frontMatterSlice.current)    // YAML front matter
+      .use(frontMatterSlice.current)    // YAML front matter (no-op, tratado no App)
+      .use(mermaidSlice.current)        // Mermaid diagrams
   )
 
   useImperativeHandle(ref, () => ({
