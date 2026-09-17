@@ -1,11 +1,12 @@
-// [mcp-local harness] feature: fix-ctrl0-conflict | plano: 6590933d | 2026-09-17 15:26:07
-// Remove Ctrl+0 do handler de heading — conflito com zoom do Electron
-// App.tsx — sidebar, word count, fullscreen, front matter, outline, open quickly
+// [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:34:19
+// App.tsx com GlobalSearch integrado na sidebar — abre via ui:global-search, fecha com Esc
+// App.tsx — sidebar, word count, fullscreen, front matter, outline, open quickly, global search
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { Sidebar } from './components/Sidebar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
+import { GlobalSearch } from './components/GlobalSearch'
 import { IPC } from '@shared/types'
 
 const WELCOME_MD = `# Bem-vindo ao TypeShuDown
@@ -16,6 +17,7 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 
 - Abra um arquivo com \`Ctrl+O\`
 - Busca rápida com \`Ctrl+P\`
+- Busca em arquivos com \`Ctrl+Shift+F\`
 - Toggle sidebar com \`Ctrl+\\\`
 - Salve com \`Ctrl+S\`
 - Alterne modo código com \`Ctrl+/\`
@@ -71,6 +73,7 @@ export default function App(): React.JSX.Element {
   const [frontMatter, setFrontMatter]           = useState<string | null>(null)
   const [outlineMarkdown, setOutlineMarkdown]   = useState(WELCOME_MD)
   const [quickOpenVisible, setQuickOpenVisible] = useState(false)
+  const [globalSearchVisible, setGlobalSearchVisible] = useState(false)
   const [currentDirPath, setCurrentDirPath]     = useState<string | null>(null)
 
   const editorContentRef = useRef(WELCOME_MD)
@@ -102,9 +105,7 @@ export default function App(): React.JSX.Element {
     setOutlineMarkdown(md)
   }, [])
 
-  const handleDirChange = useCallback((dir: string) => {
-    setCurrentDirPath(dir)
-  }, [])
+  const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
 
   useEffect(() => {
     window.api.on('file:opened', (...args: unknown[]) => {
@@ -117,8 +118,12 @@ export default function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    window.api.on('ui:open-quickly', () => setQuickOpenVisible(true))
-    return () => window.api.removeAllListeners('ui:open-quickly')
+    window.api.on('ui:open-quickly',  () => setQuickOpenVisible(true))
+    window.api.on('ui:global-search', () => { setGlobalSearchVisible(true); setSidebarOpen(true) })
+    return () => {
+      window.api.removeAllListeners('ui:open-quickly')
+      window.api.removeAllListeners('ui:global-search')
+    }
   }, [])
 
   const handleSaveAs = useCallback(async () => {
@@ -155,30 +160,15 @@ export default function App(): React.JSX.Element {
     }
   }, [handleSave, handleSaveAs, handleNew])
 
-  // ── Atalhos ───────────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey
     if (!ctrl) return
-
-    // Formatação
     if (e.key === 'b') { e.preventDefault(); editorRef.current?.toggleBold(); return }
     if (e.key === 'i') { e.preventDefault(); editorRef.current?.toggleItalic(); return }
-
-    // Headings H1-H6: Ctrl+1 a Ctrl+6
     if (e.key >= '1' && e.key <= '6' && !e.shiftKey && !e.altKey) {
-      e.preventDefault()
-      editorRef.current?.setHeading(Number(e.key) as 1|2|3|4|5|6)
-      return
+      e.preventDefault(); editorRef.current?.setHeading(Number(e.key) as 1|2|3|4|5|6); return
     }
-
-    // Parágrafo normal: Ctrl+Shift+0 (evita conflito com Ctrl+0 = Reset Zoom do Electron)
-    if (e.key === '0' && e.shiftKey) {
-      e.preventDefault()
-      editorRef.current?.setHeading(0)
-      return
-    }
-
-    // Modos de view
+    if (e.key === '0' && e.shiftKey) { e.preventDefault(); editorRef.current?.setHeading(0); return }
     if (e.key === '/')  { e.preventDefault(); setSourceMode((v) => !v); return }
     if (e.key === '\\') { e.preventDefault(); setSidebarOpen((v) => !v); return }
   }, [])
@@ -191,10 +181,11 @@ export default function App(): React.JSX.Element {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {})
       else document.exitFullscreen().catch(() => {})
     }
-    if (e.key === 'Escape' && quickOpenVisible) {
-      e.preventDefault(); e.stopPropagation(); setQuickOpenVisible(false)
+    if (e.key === 'Escape') {
+      if (quickOpenVisible)    { e.preventDefault(); e.stopPropagation(); setQuickOpenVisible(false) }
+      else if (globalSearchVisible) { e.preventDefault(); e.stopPropagation(); setGlobalSearchVisible(false) }
     }
-  }, [quickOpenVisible])
+  }, [quickOpenVisible, globalSearchVisible])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -214,12 +205,23 @@ export default function App(): React.JSX.Element {
   return (
     <div className={shellClass}>
       {sidebarOpen && (
-        <Sidebar
-          currentFilePath={filePath}
-          currentMarkdown={outlineMarkdown}
-          onFileOpen={loadFile}
-          onDirChange={handleDirChange}
-        />
+        globalSearchVisible ? (
+          // Quando Global Search está ativo, substitui o conteúdo da sidebar
+          <div className="sidebar">
+            <GlobalSearch
+              dirPath={currentDirPath}
+              onOpen={(path, content) => { loadFile(path, content); setGlobalSearchVisible(false) }}
+              onClose={() => setGlobalSearchVisible(false)}
+            />
+          </div>
+        ) : (
+          <Sidebar
+            currentFilePath={filePath}
+            currentMarkdown={outlineMarkdown}
+            onFileOpen={loadFile}
+            onDirChange={handleDirChange}
+          />
+        )
       )}
       <div className="editor-area">
         {sourceMode ? (

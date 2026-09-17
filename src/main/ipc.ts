@@ -1,9 +1,10 @@
-// [mcp-local harness] feature: sidebar-filetree | plano: de4bef30 | 2026-09-17 13:40:26
-// ipc.ts com handlers DIR_LIST e DIR_OPEN para listar diretórios
+// [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:32:33
+// ipc.ts com handler SEARCH_FILES — busca recursiva de texto em arquivos .md/.txt
+// ipc.ts com handlers de arquivo, diretório, busca e preferências
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, stat } from 'fs/promises'
-import { join, extname } from 'path'
-import { IPC, DEFAULT_PREFERENCES, UserPreferences, FileEntry } from '@shared/types'
+import { join, extname, relative } from 'path'
+import { IPC, DEFAULT_PREFERENCES, UserPreferences, FileEntry, SearchFileResult, SearchResult } from '@shared/types'
 
 let prefs: UserPreferences = { ...DEFAULT_PREFERENCES }
 
@@ -12,10 +13,7 @@ async function readTextFile(filePath: string): Promise<string> {
   if (buf[0] === 0xFF && buf[1] === 0xFE) return buf.slice(2).toString('utf16le')
   if (buf[0] === 0xFE && buf[1] === 0xFF) {
     const swapped = Buffer.alloc(buf.length - 2)
-    for (let i = 2; i < buf.length - 1; i += 2) {
-      swapped[i - 2] = buf[i + 1]
-      swapped[i - 1] = buf[i]
-    }
+    for (let i = 2; i < buf.length - 1; i += 2) { swapped[i - 2] = buf[i + 1]; swapped[i - 1] = buf[i] }
     return swapped.toString('utf16le')
   }
   if (buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) return buf.slice(3).toString('utf-8')
@@ -23,11 +21,11 @@ async function readTextFile(filePath: string): Promise<string> {
 }
 
 const MD_EXTENSIONS = new Set(['.md', '.markdown', '.txt'])
+const SKIP_DIRS     = new Set(['node_modules', '.git', 'dist', 'release', '.cache'])
 
 async function listDir(dirPath: string): Promise<FileEntry[]> {
   const entries = await readdir(dirPath)
   const result: FileEntry[] = []
-
   for (const name of entries) {
     if (name.startsWith('.') || name === 'node_modules') continue
     const fullPath = join(dirPath, name)
@@ -40,17 +38,80 @@ async function listDir(dirPath: string): Promise<FileEntry[]> {
       }
     } catch { /* skip */ }
   }
-
-  // Diretórios primeiro, depois arquivos, ambos em ordem alfabética
   return result.sort((a, b) => {
     if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
     return a.name.localeCompare(b.name)
   })
 }
 
+// ── Busca recursiva de texto em arquivos ─────────────────────────────────
+async function searchInFiles(
+  dirPath: string,
+  rootPath: string,
+  query: string,
+  caseSensitive: boolean,
+  depth = 0,
+  maxDepth = 4
+): Promise<SearchFileResult[]> {
+  if (depth > maxDepth) return []
+  let entries: string[]
+  try { entries = await readdir(dirPath) } catch { return [] }
+
+  const results: SearchFileResult[] = []
+  const q = caseSensitive ? query : query.toLowerCase()
+
+  for (const name of entries) {
+    if (SKIP_DIRS.has(name) || name.startsWith('.')) continue
+    const fullPath = join(dirPath, name)
+    let s: Awaited<ReturnType<typeof stat>>
+    try { s = await stat(fullPath) } catch { continue }
+
+    if (s.isDirectory()) {
+      const sub = await searchInFiles(fullPath, rootPath, query, caseSensitive, depth + 1, maxDepth)
+      results.push(...sub)
+    } else if (MD_EXTENSIONS.has(extname(name).toLowerCase())) {
+      try {
+        const content = await readTextFile(fullPath)
+        const lines   = content.split('\n')
+        const matches = []
+
+        for (let i = 0; i < lines.length; i++) {
+          const line   = lines[i]
+          const search = caseSensitive ? line : line.toLowerCase()
+          let pos = 0
+          while (true) {
+            const idx = search.indexOf(q, pos)
+            if (idx < 0) break
+            // Pega contexto da linha (trim, mas preserva posição do match)
+            const trimmed   = line.trim()
+            const trimOffset = line.length - line.trimStart().length
+            matches.push({
+              lineNumber: i + 1,
+              lineText:   trimmed.slice(0, 200),  // max 200 chars
+              matchStart: Math.max(0, idx - trimOffset),
+              matchEnd:   Math.max(0, idx - trimOffset) + q.length,
+            })
+            pos = idx + q.length
+            if (matches.length > 100) break  // max 100 matches por arquivo
+          }
+        }
+
+        if (matches.length > 0) {
+          results.push({
+            filePath:     fullPath,
+            fileName:     name,
+            relativePath: relative(rootPath, fullPath).replace(/\\/g, '/'),
+            matches,
+          })
+        }
+      } catch { /* skip file */ }
+    }
+  }
+  return results
+}
+
 export function registerIpcHandlers(): void {
 
-  // ── File: open via dialog ─────────────────────────────────────────────
   ipcMain.handle(IPC.FILE_OPEN, async () => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return { success: false }
@@ -69,7 +130,6 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── File: open by path ────────────────────────────────────────────────
   ipcMain.handle(IPC.FILE_OPEN_PATH, async (_e, path: string) => {
     try {
       const content = await readTextFile(path)
@@ -77,7 +137,6 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── File: save ────────────────────────────────────────────────────────
   ipcMain.handle(IPC.FILE_SAVE, async (_e, path: string, content: string) => {
     try {
       await writeFile(path, content, 'utf-8')
@@ -85,7 +144,6 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── File: save as ─────────────────────────────────────────────────────
   ipcMain.handle(IPC.FILE_SAVE_AS, async (_e, content: string) => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return { success: false }
@@ -102,7 +160,6 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── Dir: list entries ─────────────────────────────────────────────────
   ipcMain.handle(IPC.DIR_LIST, async (_e, dirPath: string) => {
     try {
       const entries = await listDir(dirPath)
@@ -110,7 +167,6 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── Dir: open folder dialog ───────────────────────────────────────────
   ipcMain.handle(IPC.DIR_OPEN, async () => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return { success: false }
@@ -124,7 +180,18 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── Prefs ─────────────────────────────────────────────────────────────
+  // ── Busca de texto em arquivos ─────────────────────────────────────────
+  ipcMain.handle(IPC.SEARCH_FILES, async (_e, dirPath: string, query: string, caseSensitive = false): Promise<SearchResult> => {
+    if (!query.trim()) return { success: true, query, results: [], total: 0 }
+    try {
+      const results = await searchInFiles(dirPath, dirPath, query, caseSensitive)
+      const total   = results.reduce((s, r) => s + r.matches.length, 0)
+      return { success: true, query, results, total }
+    } catch (e) {
+      return { success: false, query, results: [], total: 0, error: String(e) }
+    }
+  })
+
   ipcMain.handle(IPC.PREFS_GET, () => prefs)
   ipcMain.handle(IPC.PREFS_SET, (_e, partial: Partial<UserPreferences>) => {
     prefs = { ...prefs, ...partial }
