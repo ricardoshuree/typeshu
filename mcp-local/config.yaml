@@ -1,0 +1,34 @@
+# TypeMarkLee — MCP Local
+# Para iniciar: uv run ../start.py  (ou python ../start.py)
+
+project_name: mcp-typeshurelee    # nome distinto por instância
+environment: dev
+root_path: ../                     # raiz do projeto (C:\project-claude\typeshurelee\)
+allowed_extensions:
+  - .py
+  - .tsx
+  - .ts
+  - .js
+  - .jsx
+  - .json
+  - .yaml
+  - .yml
+  - .md
+  - .toml
+  - .html
+  - .css
+  - .scss
+  - .svg
+  - .xml
+  - .sql
+  - .txt
+  - .example
+  - .env.example
+blocked_dirs:
+  - node_modules
+  - .git
+  - .venv
+  - dist
+  - build
+  - .next
+  - out

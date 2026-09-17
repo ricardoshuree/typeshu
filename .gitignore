@@ -1,0 +1,44 @@
+# [mcp-local harness] feature: scaffold-electron-app | plano: a4f3314a | 2026-09-17 11:03:03
+# .gitignore para projeto Electron + Node + Python
+# Node
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+release/
+out/
+
+# Vite
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Python / MCP
+mcp-local/.venv/
+mcp-local/monitor/
+mcp-local/mcp_audit.jsonl
+mcp-local/mcp_state.json
+__pycache__/
+*.pyc
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs
+logs/
+*.log
