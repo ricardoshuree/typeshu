@@ -1,8 +1,10 @@
-// [mcp-local harness] feature: sidebar-filetree | plano: de4bef30 | 2026-09-17 13:41:25
-// App.tsx com Sidebar integrada e toggle Ctrl+backslash
+// [mcp-local harness] feature: outline-panel | plano: af178e3c | 2026-09-17 14:44:29
+// App.tsx com outlineMarkdown passado para Sidebar e atualizado em tempo real no onChange
+// App.tsx — sidebar, word count, fullscreen F11, front matter pré-processado, outline panel
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { Sidebar } from './components/Sidebar'
+import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { IPC } from '@shared/types'
 
 const WELCOME_MD = `# Bem-vindo ao TypeShuDown
@@ -37,19 +39,79 @@ declare const window: Window & {
   }
 }
 
+// ── Word count helpers ───────────────────────────────────────────────────
+function countWords(text: string): number {
+  return text.trim() === '' ? 0 : text.trim().split(/\s+/).length
+}
+function countChars(text: string): number {
+  return text.replace(/\r\n/g, '\n').length
+}
+function readingTime(words: number): string {
+  const mins = Math.ceil(words / 200)
+  return mins <= 1 ? '< 1 min' : `${mins} min`
+}
+
+// ── StatusBar ────────────────────────────────────────────────────────────
+interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean }
+
+function StatusBar({ content, filePath, isDirty }: StatusBarProps): React.JSX.Element {
+  const words = countWords(content)
+  const chars  = countChars(content)
+  const time   = readingTime(words)
+  const name   = filePath ? filePath.split(/[\\/]/).pop() : 'Sem título'
+  return (
+    <div className="status-bar">
+      <span className="status-file">{isDirty ? '● ' : ''}{name}</span>
+      <span className="status-counts">{words.toLocaleString()} palavras · {chars.toLocaleString()} chars · {time}</span>
+    </div>
+  )
+}
+
+// ── App ──────────────────────────────────────────────────────────────────
 export default function App(): React.JSX.Element {
-  const [initialContent, setInitialContent] = useState(WELCOME_MD)
-  const [editorKey, setEditorKey]           = useState(0)
-  const [filePath, setFilePath]             = useState<string | null>(null)
-  const [isDirty, setIsDirty]               = useState(false)
-  const [fileName, setFileName]             = useState('Sem título')
-  const [sidebarOpen, setSidebarOpen]       = useState(false)
-  const [focusMode, setFocusMode]           = useState(false)
-  const [typewriterMode, setTypewriterMode] = useState(false)
-  const [sourceMode, setSourceMode]         = useState(false)
+  const [initialContent, setInitialContent]     = useState(WELCOME_MD)
+  const [editorKey, setEditorKey]               = useState(0)
+  const [filePath, setFilePath]                 = useState<string | null>(null)
+  const [isDirty, setIsDirty]                   = useState(false)
+  const [fileName, setFileName]                 = useState('Sem título')
+  const [sidebarOpen, setSidebarOpen]           = useState(false)
+  const [focusMode, setFocusMode]               = useState(false)
+  const [typewriterMode, setTypewriterMode]     = useState(false)
+  const [sourceMode, setSourceMode]             = useState(false)
+  const [wordCountContent, setWordCountContent] = useState(WELCOME_MD)
+  const [frontMatter, setFrontMatter]           = useState<string | null>(null)
+  // Markdown do corpo (sem front matter) — passado ao Outline Panel
+  const [outlineMarkdown, setOutlineMarkdown]   = useState(WELCOME_MD)
 
   const editorContentRef = useRef(WELCOME_MD)
   const editorRef        = useRef<EditorHandle>(null)
+
+  // ── loadFile ─────────────────────────────────────────────────────────
+  const loadFile = useCallback((path: string, content: string) => {
+    const fm = extractFrontMatter(content)
+    const editorMd = fm ? fm.body : content
+
+    editorContentRef.current = content
+    setInitialContent(editorMd)
+    setEditorKey((k) => k + 1)
+    setFilePath(path)
+    setFileName(path.split(/[\\/]/).pop() ?? path)
+    setIsDirty(false)
+    setSourceMode(false)
+    setWordCountContent(content)
+    setFrontMatter(fm ? fm.content : null)
+    setOutlineMarkdown(editorMd)
+  }, [])
+
+  // ── onChange ─────────────────────────────────────────────────────────
+  const handleChange = useCallback((md: string) => {
+    const fm = extractFrontMatter(editorContentRef.current)
+    const full = fm ? `---\n${fm.content}\n---\n${md}` : md
+    editorContentRef.current = full
+    setIsDirty(true)
+    setWordCountContent(full)
+    setOutlineMarkdown(md)   // atualiza outline em tempo real
+  }, [])
 
   // ── Abrir arquivo (menu) ─────────────────────────────────────────────
   useEffect(() => {
@@ -60,16 +122,6 @@ export default function App(): React.JSX.Element {
       }
     })
     return () => window.api.removeAllListeners('file:opened')
-  }, [])
-
-  const loadFile = useCallback((path: string, content: string) => {
-    editorContentRef.current = content
-    setInitialContent(content)
-    setEditorKey((k) => k + 1)
-    setFilePath(path)
-    setFileName(path.split(/[\\/]/).pop() ?? path)
-    setIsDirty(false)
-    setSourceMode(false)
   }, [])
 
   // ── Save / SaveAs / New ──────────────────────────────────────────────
@@ -96,6 +148,9 @@ export default function App(): React.JSX.Element {
     setFileName('Sem título')
     setIsDirty(false)
     setSourceMode(false)
+    setWordCountContent('')
+    setFrontMatter(null)
+    setOutlineMarkdown('')
   }, [])
 
   useEffect(() => {
@@ -123,8 +178,16 @@ export default function App(): React.JSX.Element {
   }, [])
 
   const handleCaptureKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'F8') { e.preventDefault(); e.stopPropagation(); setFocusMode((v) => !v) }
-    if (e.key === 'F9') { e.preventDefault(); e.stopPropagation(); setTypewriterMode((v) => !v) }
+    if (e.key === 'F8')  { e.preventDefault(); e.stopPropagation(); setFocusMode((v) => !v) }
+    if (e.key === 'F9')  { e.preventDefault(); e.stopPropagation(); setTypewriterMode((v) => !v) }
+    if (e.key === 'F11') {
+      e.preventDefault(); e.stopPropagation()
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {})
+      } else {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -154,6 +217,7 @@ export default function App(): React.JSX.Element {
       {sidebarOpen && (
         <Sidebar
           currentFilePath={filePath}
+          currentMarkdown={outlineMarkdown}
           onFileOpen={loadFile}
         />
       )}
@@ -162,22 +226,29 @@ export default function App(): React.JSX.Element {
           <textarea
             className="source-editor"
             defaultValue={editorContentRef.current}
-            onChange={(e) => { editorContentRef.current = e.target.value; setIsDirty(true) }}
+            onChange={(e) => {
+              editorContentRef.current = e.target.value
+              setIsDirty(true)
+              setWordCountContent(e.target.value)
+              setOutlineMarkdown(e.target.value)
+            }}
             onKeyDown={(e) => handleKeyDown(e.nativeEvent)}
             spellCheck={false}
             autoFocus
           />
         ) : (
           <div className="milkdown-root">
+            {frontMatter !== null && <FrontMatterPanel content={frontMatter} />}
             <MilkdownAdapter
               key={editorKey}
               initialContent={initialContent}
               editorRef={editorRef}
               onKeyDown={handleKeyDown}
-              onChange={(md) => { editorContentRef.current = md; setIsDirty(true) }}
+              onChange={handleChange}
             />
           </div>
         )}
+        <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} />
       </div>
     </div>
   )
