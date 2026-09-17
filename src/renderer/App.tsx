@@ -1,13 +1,15 @@
-// [mcp-local harness] feature: fix-menu-channels | plano: 7f4727c6 | 2026-09-17 15:49:22
-// App.tsx com listeners para Format/View menu + Export HTML/PDF via window.print e blob download
-// App.tsx — completo: sidebar, format/view menu, export, global search, open quickly
+// [mcp-local harness] feature: autosave-watch | plano: d73bdc33 | 2026-09-17 15:59:21
+// App.tsx com auto-save (30s), watch externo (banner de recarga), indicador ✓ salvo na status bar
+// App.tsx — completo: auto-save, watch externo, sidebar, export, global search, open quickly
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { Sidebar } from './components/Sidebar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
 import { GlobalSearch } from './components/GlobalSearch'
-import { IPC } from '@shared/types'
+import { IPC, NOTIFY } from '@shared/types'
+
+const AUTO_SAVE_INTERVAL = 30_000  // 30 segundos
 
 const WELCOME_MD = `# Bem-vindo ao TypeShuDown
 
@@ -23,87 +25,76 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 - Alterne modo código com \`Ctrl+/\`
 - Focus Mode com \`F8\` · Typewriter com \`F9\`
 
-## Markdown suportado
-
-| Elemento | Sintaxe |
-| --- | --- |
-| **Negrito** | \`Ctrl+B\` |
-| *Itálico* | \`Ctrl+I\` |
-| Heading 1 | \`Ctrl+1\` |
-
 > Comece a digitar aqui ou abra um arquivo existente.
 `
 
 declare const window: Window & {
   api: {
-    openFile:           () => Promise<{ success: boolean; path?: string; content?: string }>
-    saveFile:           (path: string, content: string) => Promise<{ success: boolean }>
-    saveFileAs:         (content: string) => Promise<{ success: boolean; path?: string }>
-    on:                 (channel: string, cb: (...args: unknown[]) => void) => void
+    openFile:    () => Promise<{ success: boolean; path?: string; content?: string }>
+    openPath:    (path: string) => Promise<{ success: boolean; path?: string; content?: string }>
+    saveFile:    (path: string, content: string) => Promise<{ success: boolean }>
+    saveFileAs:  (content: string) => Promise<{ success: boolean; path?: string }>
+    watchStart:  (path: string) => Promise<{ success: boolean }>
+    watchStop:   () => Promise<{ success: boolean }>
+    on:          (channel: string, cb: (...args: unknown[]) => void) => void
     removeAllListeners: (channel: string) => void
   }
 }
 
-function countWords(text: string): number { return text.trim() === '' ? 0 : text.trim().split(/\s+/).length }
-function countChars(text: string): number { return text.replace(/\r\n/g, '\n').length }
-function readingTime(words: number): string { const m = Math.ceil(words / 200); return m <= 1 ? '< 1 min' : `${m} min` }
+function countWords(t: string) { return t.trim() === '' ? 0 : t.trim().split(/\s+/).length }
+function countChars(t: string) { return t.replace(/\r\n/g, '\n').length }
+function readingTime(w: number) { const m = Math.ceil(w / 200); return m <= 1 ? '< 1 min' : `${m} min` }
 
-interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean }
-function StatusBar({ content, filePath, isDirty }: StatusBarProps): React.JSX.Element {
+// ── StatusBar ────────────────────────────────────────────────────────────
+interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean; autoSaved: boolean }
+function StatusBar({ content, filePath, isDirty, autoSaved }: StatusBarProps): React.JSX.Element {
   const words = countWords(content); const chars = countChars(content); const time = readingTime(words)
   const name = filePath ? filePath.split(/[\\/]/).pop() : 'Sem título'
   return (
     <div className="status-bar">
-      <span className="status-file">{isDirty ? '● ' : ''}{name}</span>
+      <span className="status-file">
+        {isDirty ? '● ' : ''}{name}
+        {autoSaved && <span className="status-autosaved"> ✓ salvo</span>}
+      </span>
       <span className="status-counts">{words.toLocaleString()} palavras · {chars.toLocaleString()} chars · {time}</span>
     </div>
   )
 }
 
-// ── Exportação HTML ───────────────────────────────────────────────────────
+// ── Banner de arquivo modificado externamente ────────────────────────────
+interface ExternalChangeBannerProps { onReload: () => void; onDismiss: () => void }
+function ExternalChangeBanner({ onReload, onDismiss }: ExternalChangeBannerProps): React.JSX.Element {
+  return (
+    <div className="external-change-banner">
+      <span className="external-change-msg">⚠ Arquivo modificado externamente.</span>
+      <button className="external-change-btn external-change-btn--primary" onClick={onReload}>Recarregar</button>
+      <button className="external-change-btn" onClick={onDismiss}>Ignorar</button>
+    </div>
+  )
+}
+
+// ── Export HTML ──────────────────────────────────────────────────────────
 function exportHTML(fileName: string): void {
   const editor = document.querySelector('.ProseMirror')
   if (!editor) return
-  // Coleta CSS relevante da página
-  const styles = Array.from(document.styleSheets)
-    .map(ss => { try { return Array.from(ss.cssRules).map(r => r.cssText).join('\n') } catch { return '' } })
-    .join('\n')
-
   const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${fileName}</title>
-  <style>
-    body { max-width: 800px; margin: 40px auto; font-family: Georgia, serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; padding: 0 24px; }
-    h1,h2,h3,h4,h5,h6 { font-family: -apple-system, sans-serif; font-weight: 600; margin: 1.2em 0 0.4em; }
-    h1 { font-size: 2em; } h2 { font-size: 1.5em; } h3 { font-size: 1.25em; }
-    code { font-family: monospace; background: #f3f3f3; padding: 0.1em 0.4em; border-radius: 3px; }
-    pre { background: #f3f3f3; padding: 1em; overflow-x: auto; border-radius: 4px; }
-    pre code { background: none; padding: 0; }
-    blockquote { border-left: 3px solid #e0e0e0; padding-left: 1em; color: #6b6b6b; margin: 0.75em 0; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #e0e0e0; padding: 0.5em 0.75em; text-align: left; }
-    th { background: #f3f3f3; font-weight: 600; }
-    a { color: #4a90d9; }
-    img { max-width: 100%; }
-  </style>
-</head>
-<body>
-${editor.innerHTML}
-</body>
-</html>`
-
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${fileName}</title>
+<style>
+body{max-width:800px;margin:40px auto;font-family:Georgia,serif;font-size:16px;line-height:1.6;color:#1a1a1a;padding:0 24px}
+h1,h2,h3,h4,h5,h6{font-family:-apple-system,sans-serif;font-weight:600;margin:1.2em 0 0.4em}
+h1{font-size:2em}h2{font-size:1.5em}h3{font-size:1.25em}
+code{font-family:monospace;background:#f3f3f3;padding:.1em .4em;border-radius:3px}
+pre{background:#f3f3f3;padding:1em;overflow-x:auto;border-radius:4px}
+pre code{background:none;padding:0}
+blockquote{border-left:3px solid #e0e0e0;padding-left:1em;color:#6b6b6b;margin:.75em 0}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #e0e0e0;padding:.5em .75em;text-align:left}
+th{background:#f3f3f3;font-weight:600}a{color:#4a90d9}img{max-width:100%}
+</style></head><body>${editor.innerHTML}</body></html>`
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = fileName.replace(/\.(md|markdown|txt)$/i, '') + '.html'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  const a    = Object.assign(document.createElement('a'), { href: url, download: fileName.replace(/\.(md|markdown|txt)$/i, '') + '.html' })
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
 }
 
 // ── App ──────────────────────────────────────────────────────────────────
@@ -123,19 +114,31 @@ export default function App(): React.JSX.Element {
   const [quickOpenVisible, setQuickOpenVisible]       = useState(false)
   const [globalSearchVisible, setGlobalSearchVisible] = useState(false)
   const [currentDirPath, setCurrentDirPath]           = useState<string | null>(null)
+  const [autoSaved, setAutoSaved]                     = useState(false)
+  const [externalChanged, setExternalChanged]         = useState(false)
 
   const editorContentRef = useRef(WELCOME_MD)
+  const filePathRef      = useRef<string | null>(null)
+  const isDirtyRef       = useRef(false)
   const editorRef        = useRef<EditorHandle>(null)
 
+  // Mantém refs sincronizados para usar nos timers/listeners sem stale closure
+  useEffect(() => { filePathRef.current = filePath }, [filePath])
+  useEffect(() => { isDirtyRef.current = isDirty },   [isDirty])
+
+  // ── loadFile ─────────────────────────────────────────────────────────
   const loadFile = useCallback((path: string, content: string) => {
     const fm = extractFrontMatter(content)
     const editorMd = fm ? fm.body : content
     editorContentRef.current = content
-    setInitialContent(editorMd); setEditorKey((k) => k + 1)
+    setInitialContent(editorMd); setEditorKey(k => k + 1)
     setFilePath(path); setFileName(path.split(/[\\/]/).pop() ?? path)
     setIsDirty(false); setSourceMode(false)
     setWordCountContent(content); setFrontMatter(fm ? fm.content : null); setOutlineMarkdown(editorMd)
     setCurrentDirPath(path.replace(/[\\/][^\\/]+$/, ''))
+    setExternalChanged(false); setAutoSaved(false)
+    // Inicia watch do novo arquivo
+    window.api.watchStart(path)
   }, [])
 
   const handleChange = useCallback((md: string) => {
@@ -143,9 +146,37 @@ export default function App(): React.JSX.Element {
     const full = fm ? `---\n${fm.content}\n---\n${md}` : md
     editorContentRef.current = full
     setIsDirty(true); setWordCountContent(full); setOutlineMarkdown(md)
+    setAutoSaved(false)
   }, [])
 
   const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
+
+  // ── Auto-save ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (!isDirtyRef.current || !filePathRef.current) return
+      const r = await window.api.saveFile(filePathRef.current, editorContentRef.current)
+      if (r.success) {
+        setIsDirty(false)
+        setAutoSaved(true)
+        setTimeout(() => setAutoSaved(false), 3000)  // mostra "✓ salvo" por 3s
+      }
+    }, AUTO_SAVE_INTERVAL)
+    return () => clearInterval(timer)
+  }, [])
+
+  // ── Watch externo ─────────────────────────────────────────────────────
+  useEffect(() => {
+    window.api.on(NOTIFY.FILE_CHANGED_EXTERNALLY, () => setExternalChanged(true))
+    return () => window.api.removeAllListeners(NOTIFY.FILE_CHANGED_EXTERNALLY)
+  }, [])
+
+  const handleReloadExternal = useCallback(async () => {
+    if (!filePathRef.current) return
+    const r = await window.api.openPath(filePathRef.current)
+    if (r.success && r.content !== undefined && r.path) loadFile(r.path, r.content)
+    setExternalChanged(false)
+  }, [loadFile])
 
   // ── IPC listeners ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -159,15 +190,11 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     window.api.on('ui:open-quickly',  () => setQuickOpenVisible(true))
     window.api.on('ui:global-search', () => { setGlobalSearchVisible(true); setSidebarOpen(true) })
-    // Export HTML via blob download
     window.api.on('ui:export-html',   () => exportHTML(fileName || 'documento'))
-    // Export PDF via window.print() (Electron intercepta e mostra diálogo nativo)
     window.api.on('ui:export-pdf',    () => window.print())
-    // Format menu
     window.api.on('format:bold',    () => editorRef.current?.toggleBold())
     window.api.on('format:italic',  () => editorRef.current?.toggleItalic())
     window.api.on('format:heading', (...args: unknown[]) => editorRef.current?.setHeading((args[0] as number) as 0|1|2|3|4|5|6))
-    // View menu
     window.api.on('view:toggle-sidebar',    () => setSidebarOpen(v => !v))
     window.api.on('view:toggle-source',     () => setSourceMode(v => !v))
     window.api.on('view:toggle-focus',      () => setFocusMode(v => !v))
@@ -175,26 +202,31 @@ export default function App(): React.JSX.Element {
     return () => {
       ;['ui:open-quickly','ui:global-search','ui:export-html','ui:export-pdf',
         'format:bold','format:italic','format:heading',
-        'view:toggle-sidebar','view:toggle-source','view:toggle-focus','view:toggle-typewriter'
+        'view:toggle-sidebar','view:toggle-source','view:toggle-focus','view:toggle-typewriter',
       ].forEach(ch => window.api.removeAllListeners(ch))
     }
   }, [fileName])
 
   const handleSaveAs = useCallback(async () => {
     const r = await window.api.saveFileAs(editorContentRef.current)
-    if (r.success && r.path) { setFilePath(r.path); setFileName(r.path.split(/[\\/]/).pop() ?? r.path); setIsDirty(false) }
+    if (r.success && r.path) {
+      setFilePath(r.path); setFileName(r.path.split(/[\\/]/).pop() ?? r.path); setIsDirty(false)
+      window.api.watchStart(r.path)
+    }
   }, [])
 
   const handleSave = useCallback(async () => {
     if (!filePath) return handleSaveAs()
     const r = await window.api.saveFile(filePath, editorContentRef.current)
-    if (r.success) setIsDirty(false)
+    if (r.success) { setIsDirty(false); setAutoSaved(true); setTimeout(() => setAutoSaved(false), 2000) }
   }, [filePath, handleSaveAs])
 
   const handleNew = useCallback(() => {
+    window.api.watchStop()
     editorContentRef.current = ''
-    setInitialContent(''); setEditorKey((k) => k + 1); setFilePath(null); setFileName('Sem título')
-    setIsDirty(false); setSourceMode(false); setWordCountContent(''); setFrontMatter(null); setOutlineMarkdown('')
+    setInitialContent(''); setEditorKey(k => k + 1); setFilePath(null); setFileName('Sem título')
+    setIsDirty(false); setSourceMode(false); setWordCountContent('')
+    setFrontMatter(null); setOutlineMarkdown(''); setExternalChanged(false); setAutoSaved(false)
   }, [])
 
   useEffect(() => {
@@ -204,7 +236,7 @@ export default function App(): React.JSX.Element {
     return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
   }, [handleSave, handleSaveAs, handleNew])
 
-  // ── Atalhos de teclado ───────────────────────────────────────────────
+  // ── Atalhos ───────────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey
     if (!ctrl) return
@@ -245,22 +277,21 @@ export default function App(): React.JSX.Element {
       {sidebarOpen && (
         globalSearchVisible ? (
           <div className="sidebar">
-            <GlobalSearch
-              dirPath={currentDirPath}
-              onOpen={(path, content) => { loadFile(path, content); setGlobalSearchVisible(false) }}
-              onClose={() => setGlobalSearchVisible(false)}
-            />
+            <GlobalSearch dirPath={currentDirPath} onOpen={(path, content) => { loadFile(path, content); setGlobalSearchVisible(false) }} onClose={() => setGlobalSearchVisible(false)} />
           </div>
         ) : (
           <Sidebar currentFilePath={filePath} currentMarkdown={outlineMarkdown} onFileOpen={loadFile} onDirChange={handleDirChange} />
         )
       )}
       <div className="editor-area">
+        {externalChanged && (
+          <ExternalChangeBanner onReload={handleReloadExternal} onDismiss={() => setExternalChanged(false)} />
+        )}
         {sourceMode ? (
           <textarea
             className="source-editor"
             defaultValue={editorContentRef.current}
-            onChange={(e) => { editorContentRef.current = e.target.value; setIsDirty(true); setWordCountContent(e.target.value); setOutlineMarkdown(e.target.value) }}
+            onChange={(e) => { editorContentRef.current = e.target.value; setIsDirty(true); setWordCountContent(e.target.value); setOutlineMarkdown(e.target.value); setAutoSaved(false) }}
             onKeyDown={(e) => handleKeyDown(e.nativeEvent)}
             spellCheck={false} autoFocus
           />
@@ -270,7 +301,7 @@ export default function App(): React.JSX.Element {
             <MilkdownAdapter key={editorKey} initialContent={initialContent} editorRef={editorRef} onKeyDown={handleKeyDown} onChange={handleChange} />
           </div>
         )}
-        <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} />
+        <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
       </div>
       {quickOpenVisible && <QuickOpen dirPath={currentDirPath} onOpen={loadFile} onClose={() => setQuickOpenVisible(false)} />}
     </div>

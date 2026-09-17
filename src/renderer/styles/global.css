@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: fix-scroll-menu | plano: 35711c5b | 2026-09-17 15:47:17
-// Corrigir scroll duplo com overflow:hidden no html/body/root + CSS @media print para exportação
-// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open e global search
+// [mcp-local harness] feature: autosave-watch-css | plano: 3c856a8f | 2026-09-17 16:01:05
+// CSS com status-autosaved (verde fadeIn) e external-change-banner (amarelado com botões)
+// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -47,7 +47,7 @@
 /* ── Base — overflow:hidden evita scroll duplo no body ─────────────────── */
 html, body, #root {
   height: 100%;
-  overflow: hidden;   /* ← impede o body de criar barra de scroll própria */
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
@@ -163,6 +163,45 @@ html, body, #root {
 .status-bar { height: var(--statusbar-h); min-height: var(--statusbar-h); flex-shrink: 0; background: var(--bg-statusbar); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 12px; font-family: var(--font-mono); color: var(--text-statusbar); user-select: none; gap: 16px; }
 .status-file { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; opacity: 0.7; }
 .status-counts { white-space: nowrap; flex-shrink: 0; }
+.status-autosaved { color: #6dbf67; font-size: 11px; margin-left: 6px; opacity: 1; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* ── External Change Banner ─────────────────────────────────────────────── */
+.external-change-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, #e8c97a 15%, var(--bg-sidebar));
+  border-bottom: 1px solid color-mix(in srgb, #e8c97a 40%, transparent);
+  flex-shrink: 0;
+  font-size: 13px;
+  font-family: var(--font-ui);
+}
+
+.external-change-msg {
+  flex: 1;
+  color: var(--text);
+}
+
+.external-change-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-editor);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.external-change-btn:hover { border-color: var(--accent); color: var(--accent); }
+.external-change-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.external-change-btn--primary:hover { opacity: 0.85; color: #fff; }
 
 /* ── Quick Open ────────────────────────────────────────────────────────── */
 .qo-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; z-index: 1000; }
@@ -217,7 +256,7 @@ html, body, #root {
 /* ── Print / Export PDF ────────────────────────────────────────────────── */
 @media print {
   .app-shell { display: block; height: auto; overflow: visible; }
-  .sidebar, .status-bar, .front-matter-panel { display: none !important; }
+  .sidebar, .status-bar, .front-matter-panel, .external-change-banner { display: none !important; }
   .editor-area { height: auto; overflow: visible; }
   .milkdown-root { overflow: visible; padding: 0; height: auto; }
   .ProseMirror { max-width: 100%; padding-bottom: 0; }

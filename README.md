@@ -1,4 +1,4 @@
-# TypeShuDown
+TypeShuDown
 
 Editor Markdown WYSIWYM desktop — clone turbinado do Typora.
 

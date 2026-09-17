@@ -1,13 +1,56 @@
-// [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:32:33
-// ipc.ts com handler SEARCH_FILES — busca recursiva de texto em arquivos .md/.txt
-// ipc.ts com handlers de arquivo, diretório, busca e preferências
+// [mcp-local harness] feature: fix-chokidar-esm | plano: 8044f5d2 | 2026-09-17 16:04:17
+// Fix ESM: chokidar carregado via dynamic import() em vez de import estático
+// ipc.ts — chokidar carregado via dynamic import() para compatibilidade ESM/CJS
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, stat } from 'fs/promises'
 import { join, extname, relative } from 'path'
-import { IPC, DEFAULT_PREFERENCES, UserPreferences, FileEntry, SearchFileResult, SearchResult } from '@shared/types'
+import { IPC, NOTIFY, DEFAULT_PREFERENCES, UserPreferences, FileEntry, SearchFileResult, SearchResult } from '@shared/types'
+
+// Tipo do watcher sem importar o módulo ESM no topo
+type FSWatcher = { close(): Promise<void> }
 
 let prefs: UserPreferences = { ...DEFAULT_PREFERENCES }
 
+// ── File watcher (chokidar carregado dinamicamente) ──────────────────────
+let currentWatcher: FSWatcher | null = null
+let watchedPath: string | null = null
+let ignoreNextChange = false
+
+async function stopWatch(): Promise<void> {
+  if (currentWatcher) {
+    await currentWatcher.close()
+    currentWatcher = null
+    watchedPath    = null
+  }
+}
+
+async function startWatch(filePath: string): Promise<void> {
+  if (watchedPath === filePath) return
+  await stopWatch()
+  watchedPath = filePath
+
+  try {
+    // Dynamic import — funciona tanto em CJS bundled pelo Vite quanto em ESM puro
+    const chokidar = await import('chokidar')
+    const watcher  = chokidar.watch(filePath, {
+      persistent:       false,
+      ignoreInitial:    true,
+      awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+    })
+
+    watcher.on('change', () => {
+      if (ignoreNextChange) { ignoreNextChange = false; return }
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win) win.webContents.send(NOTIFY.FILE_CHANGED_EXTERNALLY, { path: filePath })
+    })
+
+    currentWatcher = watcher as unknown as FSWatcher
+  } catch (e) {
+    console.error('[watch] falha ao iniciar chokidar:', e)
+  }
+}
+
+// ── Text file reader ─────────────────────────────────────────────────────
 async function readTextFile(filePath: string): Promise<string> {
   const buf = await readFile(filePath)
   if (buf[0] === 0xFF && buf[1] === 0xFE) return buf.slice(2).toString('utf16le')
@@ -44,67 +87,41 @@ async function listDir(dirPath: string): Promise<FileEntry[]> {
   })
 }
 
-// ── Busca recursiva de texto em arquivos ─────────────────────────────────
 async function searchInFiles(
-  dirPath: string,
-  rootPath: string,
-  query: string,
-  caseSensitive: boolean,
-  depth = 0,
-  maxDepth = 4
+  dirPath: string, rootPath: string, query: string,
+  caseSensitive: boolean, depth = 0, maxDepth = 4
 ): Promise<SearchFileResult[]> {
   if (depth > maxDepth) return []
   let entries: string[]
   try { entries = await readdir(dirPath) } catch { return [] }
-
   const results: SearchFileResult[] = []
   const q = caseSensitive ? query : query.toLowerCase()
-
   for (const name of entries) {
     if (SKIP_DIRS.has(name) || name.startsWith('.')) continue
     const fullPath = join(dirPath, name)
     let s: Awaited<ReturnType<typeof stat>>
     try { s = await stat(fullPath) } catch { continue }
-
     if (s.isDirectory()) {
-      const sub = await searchInFiles(fullPath, rootPath, query, caseSensitive, depth + 1, maxDepth)
-      results.push(...sub)
+      results.push(...await searchInFiles(fullPath, rootPath, query, caseSensitive, depth + 1, maxDepth))
     } else if (MD_EXTENSIONS.has(extname(name).toLowerCase())) {
       try {
         const content = await readTextFile(fullPath)
-        const lines   = content.split('\n')
+        const lines = content.split('\n')
         const matches = []
-
         for (let i = 0; i < lines.length; i++) {
-          const line   = lines[i]
-          const search = caseSensitive ? line : line.toLowerCase()
+          const line = lines[i]; const search = caseSensitive ? line : line.toLowerCase()
           let pos = 0
           while (true) {
             const idx = search.indexOf(q, pos)
             if (idx < 0) break
-            // Pega contexto da linha (trim, mas preserva posição do match)
-            const trimmed   = line.trim()
-            const trimOffset = line.length - line.trimStart().length
-            matches.push({
-              lineNumber: i + 1,
-              lineText:   trimmed.slice(0, 200),  // max 200 chars
-              matchStart: Math.max(0, idx - trimOffset),
-              matchEnd:   Math.max(0, idx - trimOffset) + q.length,
-            })
+            const trimmed = line.trim(); const trimOffset = line.length - line.trimStart().length
+            matches.push({ lineNumber: i + 1, lineText: trimmed.slice(0, 200), matchStart: Math.max(0, idx - trimOffset), matchEnd: Math.max(0, idx - trimOffset) + q.length })
             pos = idx + q.length
-            if (matches.length > 100) break  // max 100 matches por arquivo
+            if (matches.length > 100) break
           }
         }
-
-        if (matches.length > 0) {
-          results.push({
-            filePath:     fullPath,
-            fileName:     name,
-            relativePath: relative(rootPath, fullPath).replace(/\\/g, '/'),
-            matches,
-          })
-        }
-      } catch { /* skip file */ }
+        if (matches.length > 0) results.push({ filePath: fullPath, fileName: name, relativePath: relative(rootPath, fullPath).replace(/\\/g, '/'), matches })
+      } catch { /* skip */ }
     }
   }
   return results
@@ -116,80 +133,68 @@ export function registerIpcHandlers(): void {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return { success: false }
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      filters: [
-        { name: 'Markdown', extensions: ['md', 'markdown'] },
-        { name: 'Texto',    extensions: ['txt'] },
-        { name: 'Todos',    extensions: ['*'] },
-      ],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }, { name: 'Texto', extensions: ['txt'] }, { name: 'Todos', extensions: ['*'] }],
       properties: ['openFile'],
     })
     if (canceled || !filePaths.length) return { success: false }
-    try {
-      const content = await readTextFile(filePaths[0])
-      return { success: true, path: filePaths[0], content }
-    } catch (e) { return { success: false, error: String(e) } }
+    try { return { success: true, path: filePaths[0], content: await readTextFile(filePaths[0]) } }
+    catch (e) { return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.FILE_OPEN_PATH, async (_e, path: string) => {
-    try {
-      const content = await readTextFile(path)
-      return { success: true, path, content }
-    } catch (e) { return { success: false, error: String(e) } }
+    try { return { success: true, path, content: await readTextFile(path) } }
+    catch (e) { return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.FILE_SAVE, async (_e, path: string, content: string) => {
-    try {
-      await writeFile(path, content, 'utf-8')
-      return { success: true, path }
-    } catch (e) { return { success: false, error: String(e) } }
+    ignoreNextChange = true
+    try { await writeFile(path, content, 'utf-8'); return { success: true, path } }
+    catch (e) { ignoreNextChange = false; return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.FILE_SAVE_AS, async (_e, content: string) => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return { success: false }
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      filters: [
-        { name: 'Markdown', extensions: ['md'] },
-        { name: 'Texto',    extensions: ['txt'] },
-      ],
+      filters: [{ name: 'Markdown', extensions: ['md'] }, { name: 'Texto', extensions: ['txt'] }],
     })
     if (canceled || !filePath) return { success: false }
-    try {
-      await writeFile(filePath, content, 'utf-8')
-      return { success: true, path: filePath }
-    } catch (e) { return { success: false, error: String(e) } }
+    ignoreNextChange = true
+    try { await writeFile(filePath, content, 'utf-8'); return { success: true, path: filePath } }
+    catch (e) { ignoreNextChange = false; return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.DIR_LIST, async (_e, dirPath: string) => {
-    try {
-      const entries = await listDir(dirPath)
-      return { success: true, entries, dirPath }
-    } catch (e) { return { success: false, error: String(e) } }
+    try { return { success: true, entries: await listDir(dirPath), dirPath } }
+    catch (e) { return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.DIR_OPEN, async () => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return { success: false }
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      properties: ['openDirectory'],
-    })
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
     if (canceled || !filePaths.length) return { success: false }
-    try {
-      const entries = await listDir(filePaths[0])
-      return { success: true, entries, dirPath: filePaths[0] }
-    } catch (e) { return { success: false, error: String(e) } }
+    try { return { success: true, entries: await listDir(filePaths[0]), dirPath: filePaths[0] } }
+    catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── Busca de texto em arquivos ─────────────────────────────────────────
   ipcMain.handle(IPC.SEARCH_FILES, async (_e, dirPath: string, query: string, caseSensitive = false): Promise<SearchResult> => {
     if (!query.trim()) return { success: true, query, results: [], total: 0 }
     try {
       const results = await searchInFiles(dirPath, dirPath, query, caseSensitive)
-      const total   = results.reduce((s, r) => s + r.matches.length, 0)
-      return { success: true, query, results, total }
-    } catch (e) {
-      return { success: false, query, results: [], total: 0, error: String(e) }
-    }
+      return { success: true, query, results, total: results.reduce((s, r) => s + r.matches.length, 0) }
+    } catch (e) { return { success: false, query, results: [], total: 0, error: String(e) } }
+  })
+
+  // ── Watch ──────────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.WATCH_START, async (_e, filePath: string) => {
+    await startWatch(filePath)
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.WATCH_STOP, async () => {
+    await stopWatch()
+    return { success: true }
   })
 
   ipcMain.handle(IPC.PREFS_GET, () => prefs)

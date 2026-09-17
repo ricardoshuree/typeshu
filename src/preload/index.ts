@@ -1,7 +1,7 @@
-// [mcp-local harness] feature: fix-menu-channels | plano: 7f4727c6 | 2026-09-17 15:48:23
-// Preload com todos os canais do menu Format, View e Export
+// [mcp-local harness] feature: autosave-watch | plano: d73bdc33 | 2026-09-17 15:58:14
+// Preload com watchStart/watchStop e NOTIFY.FILE_CHANGED_EXTERNALLY na whitelist
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC } from '../shared/types'
+import { IPC, NOTIFY } from '../shared/types'
 
 const LISTEN_CHANNELS = [
   IPC.FILE_NEW,
@@ -12,15 +12,14 @@ const LISTEN_CHANNELS = [
   'ui:global-search',
   'ui:export-pdf',
   'ui:export-html',
-  // Canais do menu Format
   'format:bold',
   'format:italic',
   'format:heading',
-  // Canais do menu View
   'view:toggle-sidebar',
   'view:toggle-source',
   'view:toggle-focus',
   'view:toggle-typewriter',
+  NOTIFY.FILE_CHANGED_EXTERNALLY,  // arquivo mudou no disco
 ] as const
 
 type ListenChannel = typeof LISTEN_CHANNELS[number]
@@ -34,6 +33,8 @@ contextBridge.exposeInMainWorld('api', {
   openDir:     () => ipcRenderer.invoke(IPC.DIR_OPEN),
   searchFiles: (dirPath: string, query: string, caseSensitive?: boolean) =>
     ipcRenderer.invoke(IPC.SEARCH_FILES, dirPath, query, caseSensitive ?? false),
+  watchStart:  (path: string) => ipcRenderer.invoke(IPC.WATCH_START, path),
+  watchStop:   () => ipcRenderer.invoke(IPC.WATCH_STOP),
   getPrefs:    () => ipcRenderer.invoke(IPC.PREFS_GET),
   setPrefs:    (p: Record<string, unknown>) => ipcRenderer.invoke(IPC.PREFS_SET, p),
 
