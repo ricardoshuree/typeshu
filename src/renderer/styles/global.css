@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: mermaid-katex | plano: 300c11d7 | 2026-09-17 14:56:28
-// CSS com estilos de mermaid block e katex math
-// CSS com sidebar, outline, status bar, front matter, task list, mermaid e katex
+// [mcp-local harness] feature: open-quickly | plano: 91e7f8b1 | 2026-09-17 15:10:15
+// CSS com Quick Open modal
+// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex e quick open
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -45,15 +45,7 @@
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */
-html, body, #root {
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-ui);
-  font-size: var(--font-size);
-  line-height: var(--line-height);
-  -webkit-font-smoothing: antialiased;
-}
+html, body, #root { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: var(--font-size); line-height: var(--line-height); -webkit-font-smoothing: antialiased; }
 
 /* ── Layout shell ──────────────────────────────────────────────────────── */
 .app-shell { display: flex; height: 100vh; overflow: hidden; background: var(--bg); }
@@ -125,79 +117,21 @@ html, body, #root {
 .ProseMirror li[data-checked="true"] > div,.ProseMirror li[data-checked="true"] > p { text-decoration: line-through; color: var(--text-muted); }
 
 /* ── Mermaid ───────────────────────────────────────────────────────────── */
-.mermaid-block {
-  max-width: var(--editor-width);
-  margin: 1em auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-sidebar);
-  overflow: hidden;
-}
-
-.mermaid-render {
-  padding: 16px;
-  cursor: pointer;
-  text-align: center;
-  transition: opacity 0.2s;
-  min-height: 48px;
-}
+.mermaid-block { max-width: var(--editor-width); margin: 1em auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-sidebar); overflow: hidden; }
+.mermaid-render { padding: 16px; cursor: pointer; text-align: center; transition: opacity 0.2s; min-height: 48px; }
 .mermaid-render:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .mermaid-render svg { max-width: 100%; height: auto; }
-
-.mermaid-editor {
-  border-top: 1px solid var(--border);
-  background: var(--bg-editor);
-  padding: 8px;
-}
-
-.mermaid-hint {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 0 4px 6px;
-  font-family: var(--font-ui);
-}
-
-.mermaid-textarea {
-  width: 100%;
-  background: var(--bg-sidebar);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px;
-  resize: vertical;
-  outline: none;
-}
+.mermaid-editor { border-top: 1px solid var(--border); background: var(--bg-editor); padding: 8px; }
+.mermaid-hint { font-size: 11px; color: var(--text-muted); padding: 0 4px 6px; font-family: var(--font-ui); }
+.mermaid-textarea { width: 100%; background: var(--bg-sidebar); color: var(--text); font-family: var(--font-mono); font-size: 13px; line-height: 1.5; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; resize: vertical; outline: none; }
 .mermaid-textarea:focus { border-color: var(--accent); }
-
-.mermaid-error {
-  padding: 12px;
-  color: #e06c75;
-  font-size: 13px;
-  font-family: var(--font-mono);
-}
+.mermaid-error { padding: 12px; color: #e06c75; font-size: 13px; font-family: var(--font-mono); }
 .mermaid-error pre { margin-top: 6px; white-space: pre-wrap; font-size: 12px; opacity: 0.8; }
 
 /* ── KaTeX Math ────────────────────────────────────────────────────────── */
-/* O CSS base do KaTeX é importado via JS (import 'katex/dist/katex.min.css') */
-/* Ajustes de integração com o tema: */
-.ProseMirror .math-node {
-  cursor: pointer;
-  padding: 0 2px;
-  border-radius: 2px;
-}
+.ProseMirror .math-node { cursor: pointer; padding: 0 2px; border-radius: 2px; }
 .ProseMirror .math-node:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-
-/* Math block ($$...$$) — centralizado */
-.ProseMirror .math-block {
-  display: block;
-  text-align: center;
-  margin: 1em 0;
-  padding: 0.5em;
-  overflow-x: auto;
-}
+.ProseMirror .math-block { display: block; text-align: center; margin: 1em 0; padding: 0.5em; overflow-x: auto; }
 
 /* ── YAML Front Matter ─────────────────────────────────────────────────── */
 .front-matter-panel { max-width: var(--editor-width); margin: 0 auto 1.5em; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-sidebar); overflow: hidden; font-family: var(--font-mono); font-size: 13px; }
@@ -220,6 +154,131 @@ html, body, #root {
 .status-bar { height: var(--statusbar-h); min-height: var(--statusbar-h); flex-shrink: 0; background: var(--bg-statusbar); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 12px; font-family: var(--font-mono); color: var(--text-statusbar); user-select: none; gap: 16px; }
 .status-file { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; opacity: 0.7; }
 .status-counts { white-space: nowrap; flex-shrink: 0; }
+
+/* ── Quick Open ────────────────────────────────────────────────────────── */
+.qo-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+  z-index: 1000;
+}
+
+.qo-modal {
+  width: min(600px, 90vw);
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 70vh;
+}
+
+.qo-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.qo-icon {
+  font-size: 18px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.qo-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+.qo-input::placeholder { color: var(--text-muted); }
+
+.qo-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.qo-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.qo-item {
+  display: flex;
+  flex-direction: column;
+  padding: 7px 16px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.08s;
+}
+.qo-item:hover { background: var(--border); }
+.qo-item--selected {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-left-color: var(--accent);
+}
+
+.qo-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qo-item-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+}
+
+.qo-match {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.qo-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.qo-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.qo-footer-keys {
+  opacity: 0.7;
+}
 
 /* ── Seleção ───────────────────────────────────────────────────────────── */
 ::selection { background: var(--selection); }

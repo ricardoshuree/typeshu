@@ -1,13 +1,15 @@
-// [mcp-local harness] feature: sidebar-filetree | plano: de4bef30 | 2026-09-17 13:40:36
-// Preload com listDir e openDir expostos via contextBridge
+// [mcp-local harness] feature: fix-quickopen-channel | plano: 2d37569e | 2026-09-17 15:12:46
+// Adicionar ui:open-quickly à whitelist LISTEN_CHANNELS do preload
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
 
+// Canais que o main process pode enviar ao renderer
 const LISTEN_CHANNELS = [
   IPC.FILE_NEW,
   IPC.FILE_SAVE,
   IPC.FILE_SAVE_AS,
   'file:opened',
+  'ui:open-quickly',   // ← Ctrl+P abre o modal QuickOpen
 ] as const
 
 type ListenChannel = typeof LISTEN_CHANNELS[number]

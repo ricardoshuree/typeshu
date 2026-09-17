@@ -1,13 +1,14 @@
-// [mcp-local harness] feature: fix-menu-ipc | plano: 74359e53 | 2026-09-17 12:33:54
+// [mcp-local harness] feature: open-quickly | plano: 91e7f8b1 | 2026-09-17 15:08:16
+// Menu com Ctrl+P registrado — envia ui:open-quickly ao renderer
 // Menu corrigido — open executa direto no main e envia resultado via webContents.send
 import { Menu, BrowserWindow, app, dialog } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { IPC } from '../shared/types'
 
-// Canais para enviar resultado ao renderer
 const RESULT = {
-  FILE_OPENED:  'file:opened',
-  FILE_SAVED:   'file:saved',
+  FILE_OPENED:    'file:opened',
+  FILE_SAVED:     'file:saved',
+  OPEN_QUICKLY:   'ui:open-quickly',   // sinal para o renderer abrir o modal Ctrl+P
 } as const
 
 function getWin(): BrowserWindow | null {
@@ -17,7 +18,6 @@ function getWin(): BrowserWindow | null {
 async function openFile(): Promise<void> {
   const win = getWin()
   if (!win) return
-
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown'] },
@@ -26,9 +26,7 @@ async function openFile(): Promise<void> {
     ],
     properties: ['openFile'],
   })
-
   if (canceled || !filePaths.length) return
-
   try {
     const content = await readFile(filePaths[0], 'utf-8')
     win.webContents.send(RESULT.FILE_OPENED, { success: true, path: filePaths[0], content })
@@ -40,16 +38,13 @@ async function openFile(): Promise<void> {
 async function saveFileAs(content: string): Promise<string | null> {
   const win = getWin()
   if (!win) return null
-
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     filters: [
       { name: 'Markdown', extensions: ['md'] },
       { name: 'Texto',    extensions: ['txt'] },
     ],
   })
-
   if (canceled || !filePath) return null
-
   await writeFile(filePath, content, 'utf-8')
   return filePath
 }
@@ -69,6 +64,11 @@ export function buildMenu(): void {
           label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
           click: () => openFile(),
+        },
+        {
+          label: 'Open Quickly',
+          accelerator: 'CmdOrCtrl+P',
+          click: () => getWin()?.webContents.send(RESULT.OPEN_QUICKLY),
         },
         { type: 'separator' },
         {
@@ -124,9 +124,7 @@ export function buildMenu(): void {
       ],
     },
   ]
-
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-// Exportar para uso no ipc.ts se necessário
 export { saveFileAs, RESULT }
