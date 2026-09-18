@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
-// +.sidebar-sort-btn para botão de ordenação na sidebar
+// [mcp-local harness] feature: toolbars-v2 | plano: 807ef92b | 2026-09-18
+// +.tb-sep no toolbar fixo; +.ftb-* para FloatingToolbar
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -102,7 +102,6 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .sidebar-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; line-height: 1; padding: 2px 4px; border-radius: var(--radius); flex-shrink: 0; }
 .sidebar-btn:hover { background: var(--border); color: var(--text); }
-/* Sort button — texto menor para caber A→Z / Z→A / 🕐 */
 .sidebar-sort-btn { font-size: 10px; font-weight: 700; font-family: var(--font-mono); letter-spacing: -0.02em; padding: 2px 5px; }
 .sidebar-tree { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 0; }
 .sidebar-empty { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
@@ -371,7 +370,7 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 /* ── Print / Export PDF ────────────────────────────────────────────────── */
 @media print {
   .app-shell { display: block; height: auto; overflow: visible; }
-  .sidebar, .status-bar, .toolbar, .front-matter-panel, .external-change-banner, .find-bar { display: none !important; }
+  .sidebar, .status-bar, .toolbar, .ftb, .front-matter-panel, .external-change-banner, .find-bar { display: none !important; }
   .editor-area { height: auto; overflow: visible; }
   .milkdown-root { overflow: visible; padding: 0; height: auto; }
   .ProseMirror { max-width: 100%; padding-bottom: 0; }
@@ -387,8 +386,137 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .tb-title { flex: 1; font-size: 13px; font-weight: 500; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 10px; min-width: 0; }
 .tb-dirty { color: var(--accent); margin-right: 4px; font-size: 12px; }
 .tb-spacer { flex: 1; }
+.tb-sep { display: block; width: 1px; height: 18px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
 .tb-btn { display: flex; align-items: center; justify-content: center; height: 28px; min-width: 28px; padding: 0; background: none; border: 1px solid transparent; border-radius: var(--radius); color: var(--text-muted); cursor: pointer; transition: background 0.1s, color 0.1s; flex-shrink: 0; }
 .tb-btn:hover { background: var(--border); color: var(--text); }
 .tb-btn:active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 .tb-btn--active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
 .tb-btn--icon { min-width: 30px; }
+
+/* ── Floating Toolbar ──────────────────────────────────────────────────── */
+.ftb {
+  position: fixed;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  background: var(--bg-toolbar);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  transform: translateY(-100%);
+  user-select: none;
+  pointer-events: auto;
+  animation: ftb-in 0.08s ease;
+}
+
+@keyframes ftb-in {
+  from { opacity: 0; transform: translateY(calc(-100% - 4px)); }
+  to   { opacity: 1; transform: translateY(-100%); }
+}
+
+/* Separador vertical no flutuante */
+.ftb-sep {
+  display: block;
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* Botão base */
+.ftb-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  transition: background 0.08s, color 0.08s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.ftb-btn:hover { background: var(--border); color: var(--text); }
+.ftb-btn:active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.ftb-btn--active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+
+/* Variantes de estilo dos botões inline */
+.ftb-btn--bold   { font-weight: 700; }
+.ftb-btn--italic { font-style: italic; }
+.ftb-btn--strike { text-decoration: line-through; }
+
+/* Heading button com chevron */
+.ftb-btn--heading {
+  gap: 2px;
+  padding: 0 5px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: -0.02em;
+  min-width: 32px;
+}
+
+/* Wrapper do dropdown de heading */
+.ftb-heading-wrap { position: relative; flex-shrink: 0; }
+
+/* Dropdown menu do heading */
+.ftb-heading-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--bg-toolbar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  padding: 4px;
+  min-width: 130px;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: ftb-in 0.07s ease;
+}
+
+.ftb-heading-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: var(--font-ui);
+  transition: background 0.07s;
+}
+.ftb-heading-item:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+
+.ftb-heading-tag {
+  font-weight: 700;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 18px;
+}
+.ftb-heading-item:hover .ftb-heading-tag { color: var(--accent); }
+
+.ftb-heading-item--p  .ftb-heading-label { font-size: 13px; }
+.ftb-heading-item--h1 .ftb-heading-label { font-size: 15px; font-weight: 700; }
+.ftb-heading-item--h2 .ftb-heading-label { font-size: 14px; font-weight: 600; }
+.ftb-heading-item--h3 .ftb-heading-label { font-size: 13px; font-weight: 600; }
+.ftb-heading-item--h4 .ftb-heading-label { font-size: 12px; }
+.ftb-heading-item--h5 .ftb-heading-label { font-size: 12px; color: var(--text-muted); }
+.ftb-heading-item--h6 .ftb-heading-label { font-size: 11px; color: var(--text-muted); }
+.ftb-heading-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 1f0b6534 | 2026-09-18
-// buildMenu agora é async (lê recent.json) — await na chamada
+// [mcp-local harness] feature: toolbars-v2-fix3 | plano: 7e079ba3 | 2026-09-18
+// Remove openDevTools automático no dev (F12 ainda abre)
 import { app, BrowserWindow, shell, session } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
@@ -19,7 +19,7 @@ function createWindow(): BrowserWindow {
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' } })
   if (isDev) {
     win.loadURL('http://localhost:5173')
-    win.webContents.openDevTools({ mode: 'detach' })
+    // DevTools disponível via F12 — não abre automaticamente
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }

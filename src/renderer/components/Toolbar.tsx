@@ -1,15 +1,19 @@
 import React from 'react'
 
 export interface ToolbarProps {
-  fileName:        string
-  isDirty:         boolean
-  sidebarOpen:     boolean
-  onToggleSidebar: () => void
-  onPrefs:         () => void
+  fileName:          string
+  isDirty:           boolean
+  sidebarOpen:       boolean
+  onToggleSidebar:   () => void
+  onBulletList:      () => void
+  onOrderedList:     () => void
+  onInsertTable:     () => void
+  onPrefs:           () => void
 }
 
 export function Toolbar({
-  fileName, isDirty, sidebarOpen, onToggleSidebar, onPrefs,
+  fileName, isDirty, sidebarOpen,
+  onToggleSidebar, onBulletList, onOrderedList, onInsertTable, onPrefs,
 }: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar">
@@ -27,19 +31,28 @@ export function Toolbar({
         {fileName}
       </span>
 
+      <span className="tb-sep" />
+
+      <button className="tb-btn tb-btn--icon" onClick={onBulletList} title="Bullet List (Ctrl+Shift+[)" aria-label="Bullet List">
+        <TbIconBulletList />
+      </button>
+      <button className="tb-btn tb-btn--icon" onClick={onOrderedList} title="Ordered List (Ctrl+Shift+])" aria-label="Ordered List">
+        <TbIconOrderedList />
+      </button>
+      <button className="tb-btn tb-btn--icon" onClick={onInsertTable} title="Insert Table (Ctrl+T)" aria-label="Insert Table">
+        <TbIconTable />
+      </button>
+
       <span className="tb-spacer" />
 
-      <button
-        className="tb-btn tb-btn--icon"
-        onClick={onPrefs}
-        title="Preferências (Ctrl+,)"
-        aria-label="Preferências"
-      >
+      <button className="tb-btn tb-btn--icon" onClick={onPrefs} title="Preferências (Ctrl+,)" aria-label="Preferências">
         <TbIconGear />
       </button>
     </div>
   )
 }
+
+/* ── Ícones SVG inline ───────────────────────────────────────────────────── */
 
 function TbIconHamburger() {
   return (
@@ -47,6 +60,45 @@ function TbIconHamburger() {
       <rect x="2" y="4"    width="12" height="1.5" rx="0.75" fill="currentColor"/>
       <rect x="2" y="7.25" width="12" height="1.5" rx="0.75" fill="currentColor"/>
       <rect x="2" y="10.5" width="12" height="1.5" rx="0.75" fill="currentColor"/>
+    </svg>
+  )
+}
+
+function TbIconBulletList() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="3" cy="4.5" r="1.25" fill="currentColor"/>
+      <circle cx="3" cy="8"   r="1.25" fill="currentColor"/>
+      <circle cx="3" cy="11.5" r="1.25" fill="currentColor"/>
+      <line x1="6" y1="4.5" x2="14" y2="4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6" y1="8"   x2="14" y2="8"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6" y1="11.5" x2="14" y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function TbIconOrderedList() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <text x="1.5" y="5.5" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="monospace">1.</text>
+      <text x="1.5" y="9"   fontSize="5" fontWeight="700" fill="currentColor" fontFamily="monospace">2.</text>
+      <text x="1.5" y="12.5" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="monospace">3.</text>
+      <line x1="6" y1="4.5"  x2="14" y2="4.5"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6" y1="8"    x2="14" y2="8"    stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6" y1="11.5" x2="14" y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function TbIconTable() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <line x1="1.5" y1="6"  x2="14.5" y2="6"  stroke="currentColor" strokeWidth="1.25"/>
+      <line x1="1.5" y1="9.5" x2="14.5" y2="9.5" stroke="currentColor" strokeWidth="1.25"/>
+      <line x1="6"   y1="6"  x2="6"   y2="13.5" stroke="currentColor" strokeWidth="1.25"/>
+      <line x1="10"  y1="6"  x2="10"  y2="13.5" stroke="currentColor" strokeWidth="1.25"/>
+      <rect x="1.5" y="2.5" width="13" height="3.5" rx="1.5" fill="currentColor" opacity="0.12"/>
     </svg>
   )
 }

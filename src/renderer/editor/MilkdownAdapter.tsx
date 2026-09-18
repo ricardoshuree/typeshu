@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
-// EditorHandle: +toggleBlockquote, +toggleBulletList, +toggleOrderedList, +insertTable
+// [mcp-local harness] feature: fix-italic-final | plano: b14d3530 | 2026-09-18
+// Fix: toggleItalic usa 'emphasis' — nome real do mark no schema Milkdown v7
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -29,6 +29,8 @@ import type { EditorProps } from './EditorAdapter'
 import 'katex/dist/katex.min.css'
 
 export interface EditorHandle {
+  executeWithSelection: (savedFrom: number, savedTo: number, fn: () => void) => void
+  focusEditor:          () => void
   toggleBold:           () => void
   toggleItalic:         () => void
   toggleStrikethrough:  () => void
@@ -153,14 +155,54 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
   }
 
   useImperativeHandle(ref, () => ({
+    executeWithSelection: (savedFrom: number, savedTo: number, fn: () => void) => {
+      const editor = get(); if (!editor) return
+      editor.action((ctx) => {
+        const view = getView(ctx); if (!view) return
+        try {
+          const sel = TextSelection.create(view.state.doc, savedFrom, savedTo)
+          view.dispatch(view.state.tr.setSelection(sel))
+          view.focus()
+        } catch { view.focus() }
+      })
+      fn()
+    },
+
+    focusEditor: () => {
+      const e = get(); if (!e) return
+      e.action((ctx) => { const view = getView(ctx); if (view) view.focus() })
+    },
+
     toggleBold:          () => { const e = get(); if (e) e.action(ctx => toggleMark('strong', ctx)) },
-    toggleItalic:        () => { const e = get(); if (e) e.action(ctx => toggleMark('em', ctx)) },
+    toggleItalic:        () => { const e = get(); if (e) e.action(ctx => toggleMark('emphasis', ctx)) },
     toggleStrikethrough: () => { const e = get(); if (e) e.action(ctx => toggleMark('strike_through', ctx)) },
-    toggleBlockquote:    () => { const e = get(); if (e) e.action(callCommand(wrapInBlockquoteCommand.key)) },
-    toggleBulletList:    () => { const e = get(); if (e) e.action(callCommand(wrapInBulletListCommand.key)) },
-    toggleOrderedList:   () => { const e = get(); if (e) e.action(callCommand(wrapInOrderedListCommand.key)) },
-    insertTable:         () => { const e = get(); if (e) e.action(callCommand(insertTableCommand.key)) },
-    setHeading: (level: 0|1|2|3|4|5|6) => { const e = get(); if (e) e.action(callCommand(wrapInHeadingCommand.key, level)) },
+
+    toggleBlockquote: () => {
+      const e = get(); if (!e) return
+      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
+      e.action(callCommand(wrapInBlockquoteCommand.key))
+    },
+    toggleBulletList: () => {
+      const e = get(); if (!e) return
+      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
+      e.action(callCommand(wrapInBulletListCommand.key))
+    },
+    toggleOrderedList: () => {
+      const e = get(); if (!e) return
+      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
+      e.action(callCommand(wrapInOrderedListCommand.key))
+    },
+    insertTable: () => {
+      const e = get(); if (!e) return
+      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
+      e.action(callCommand(insertTableCommand.key))
+    },
+    setHeading: (level: 0|1|2|3|4|5|6) => {
+      const e = get(); if (!e) return
+      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
+      e.action(callCommand(wrapInHeadingCommand.key, level))
+    },
+
     insertCodeFence: (lang = '') => { const e = get(); if (e) e.action(ctx => doInsertCodeFence(ctx, lang)) },
 
     getSelectedText: () => {
@@ -189,7 +231,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'find', query, caseSensitive }))
       })
     },
-
     findNext: () => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
@@ -197,7 +238,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'next' }))
       })
     },
-
     findPrev: () => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
@@ -205,7 +245,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'prev' }))
       })
     },
-
     clearFind: () => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
@@ -213,7 +252,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'clear' }))
       })
     },
-
     getFindState: () => {
       const editor = get(); if (!editor) return { matches: 0, current: -1 }
       let result = { matches: 0, current: -1 }
@@ -224,7 +262,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       })
       return result
     },
-
     scrollToCurrentMatch: () => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
@@ -239,7 +276,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         } catch {}
       })
     },
-
     replaceOne: (replacement: string) => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
@@ -260,7 +296,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         view.focus()
       })
     },
-
     replaceAll: (replacement: string) => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {

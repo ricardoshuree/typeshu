@@ -1,10 +1,11 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
-// +blockquote/lists/table atalhos e IPC; +addRecent ao abrir arquivo; +recentFiles para sidebar
+// [mcp-local harness] feature: toolbars-v2-fix3 | plano: 7e079ba3 | 2026-09-18
+// FloatingToolbar: onFocus→onExecute usando executeWithSelection
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { setFindOpener, setReplaceOpener } from './editor/shortcutPlugin'
 import { Sidebar } from './components/Sidebar'
 import { Toolbar } from './components/Toolbar'
+import { FloatingToolbar } from './components/FloatingToolbar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
 import { GlobalSearch } from './components/GlobalSearch'
@@ -150,16 +151,16 @@ export default function App(): React.JSX.Element {
   const [prefsVisible, setPrefsVisible]               = useState(false)
   const [recentFiles, setRecentFiles]                 = useState<RecentFile[]>([])
 
-  const editorContentRef    = useRef(WELCOME_MD)
-  const filePathRef         = useRef<string | null>(null)
-  const isDirtyRef          = useRef(false)
-  const autoSaveIntervalRef = useRef(AUTO_SAVE_INTERVAL_DEFAULT)
-  const editorRef           = useRef<EditorHandle>(null)
+  const editorContentRef     = useRef(WELCOME_MD)
+  const filePathRef          = useRef<string | null>(null)
+  const isDirtyRef           = useRef(false)
+  const autoSaveIntervalRef  = useRef(AUTO_SAVE_INTERVAL_DEFAULT)
+  const editorRef            = useRef<EditorHandle>(null)
+  const milkdownContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { filePathRef.current = filePath }, [filePath])
   useEffect(() => { isDirtyRef.current = isDirty },   [isDirty])
 
-  // ── Carrega prefs e recentes ───────────────────────────────────────────
   useEffect(() => {
     window.api.getPrefs().then(p => {
       const merged = { ...DEFAULT_PREFERENCES, ...p }
@@ -179,7 +180,6 @@ export default function App(): React.JSX.Element {
     await window.api.setPrefs(prefs as any)
   }, [prefs])
 
-  // ── Find / Replace ────────────────────────────────────────────────────
   useEffect(() => {
     setFindOpener(() => { setFindReplace(false); setFindVisible(true) })
     setReplaceOpener(() => { setFindReplace(true); setFindVisible(true) })
@@ -194,7 +194,7 @@ export default function App(): React.JSX.Element {
     setFindMatches(0); setFindCurrent(-1)
   }, [])
 
-  const handleFindState   = useCallback((matches: number, current: number) => {
+  const handleFindState = useCallback((matches: number, current: number) => {
     setFindMatches(matches); setFindCurrent(current)
     setTimeout(() => editorRef.current?.scrollToCurrentMatch(), 0)
   }, [])
@@ -205,7 +205,6 @@ export default function App(): React.JSX.Element {
   const handleReplaceOne = useCallback((r: string) => editorRef.current?.replaceOne(r), [])
   const handleReplaceAll = useCallback((r: string) => editorRef.current?.replaceAll(r), [])
 
-  // ── File ops ──────────────────────────────────────────────────────────
   const loadFile = useCallback(async (path: string, content: string) => {
     const fm = extractFrontMatter(content); const editorMd = fm ? fm.body : content
     editorContentRef.current = content
@@ -216,7 +215,6 @@ export default function App(): React.JSX.Element {
     setCurrentDirPath(path.replace(/[\\/][^\\/]+$/, ''))
     setExternalChanged(false); setAutoSaved(false)
     window.api.watchStart(path)
-    // Registra nos recentes e reconstrói o menu
     const updated = await window.api.addRecent(path)
     setRecentFiles(updated)
   }, [])
@@ -247,7 +245,6 @@ export default function App(): React.JSX.Element {
     }
   }, [])
 
-  // ── Auto-save ─────────────────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(async () => {
       if (!isDirtyRef.current || !filePathRef.current) return
@@ -277,7 +274,6 @@ export default function App(): React.JSX.Element {
     return () => window.api.removeAllListeners('file:opened')
   }, [loadFile])
 
-  // ── Listener: arquivo aberto via Open Recent no menu ─────────────────
   useEffect(() => {
     window.api.on('recent:open', async (...args: unknown[]) => {
       const path = args[0] as string
@@ -287,7 +283,6 @@ export default function App(): React.JSX.Element {
     return () => window.api.removeAllListeners('recent:open')
   }, [])
 
-  // ── Listener: recent atualizado pelo main (ex: limpar) ────────────────
   useEffect(() => {
     window.api.on(NOTIFY.RECENT_CHANGED, (...args: unknown[]) => {
       setRecentFiles(args[0] as RecentFile[])
@@ -295,7 +290,6 @@ export default function App(): React.JSX.Element {
     return () => window.api.removeAllListeners(NOTIFY.RECENT_CHANGED)
   }, [])
 
-  // ── Link Dialog ───────────────────────────────────────────────────────
   const openLinkDialog = useCallback(() => {
     const selected = editorRef.current?.getSelectedText() ?? ''
     setLinkInitialLabel(selected); setLinkDialogVisible(true)
@@ -305,7 +299,11 @@ export default function App(): React.JSX.Element {
     editorRef.current?.replaceSelectionWith(`[${label}](${url})`); setLinkDialogVisible(false)
   }, [])
 
-  // ── IPC listeners ─────────────────────────────────────────────────────
+  const handleInlineCode = useCallback(() => {
+    const sel = editorRef.current?.getSelectedText() ?? ''
+    editorRef.current?.replaceSelectionWith(sel ? `\`${sel}\`` : '``')
+  }, [])
+
   useEffect(() => {
     window.api.on('ui:open-quickly',  () => setQuickOpenVisible(true))
     window.api.on('ui:global-search', () => { setGlobalSearchVisible(true); setSidebarOpen(true) })
@@ -336,7 +334,6 @@ export default function App(): React.JSX.Element {
     }
   }, [fileName, openLinkDialog])
 
-  // ── Save ──────────────────────────────────────────────────────────────
   const handleSaveAs = useCallback(async () => {
     const r = await window.api.saveFileAs(editorContentRef.current)
     if (r.success && r.path) {
@@ -365,7 +362,6 @@ export default function App(): React.JSX.Element {
     return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
   }, [handleSave, handleSaveAs, handleNew])
 
-  // ── Keyboard ──────────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey; const shift = e.shiftKey; const alt = e.altKey
     const key = e.key.toLowerCase(); const code = e.code
@@ -430,6 +426,9 @@ export default function App(): React.JSX.Element {
         isDirty={isDirty}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(v => !v)}
+        onBulletList={() => editorRef.current?.toggleBulletList()}
+        onOrderedList={() => editorRef.current?.toggleOrderedList()}
+        onInsertTable={() => editorRef.current?.insertTable()}
         onPrefs={() => setPrefsVisible(true)}
       />
 
@@ -484,7 +483,7 @@ export default function App(): React.JSX.Element {
               spellCheck={prefs.spellCheck} autoFocus
             />
           ) : (
-            <div className="milkdown-root">
+            <div className="milkdown-root" ref={milkdownContainerRef}>
               {frontMatter !== null && <FrontMatterPanel content={frontMatter} />}
               <MilkdownAdapter
                 key={editorKey} initialContent={initialContent}
@@ -496,6 +495,20 @@ export default function App(): React.JSX.Element {
           <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
         </div>
       </div>
+
+      {!sourceMode && (
+        <FloatingToolbar
+          editorContainerRef={milkdownContainerRef}
+          onExecute={(from, to, fn) => editorRef.current?.executeWithSelection(from, to, fn)}
+          onBold={() => editorRef.current?.toggleBold()}
+          onItalic={() => editorRef.current?.toggleItalic()}
+          onStrike={() => editorRef.current?.toggleStrikethrough()}
+          onInlineCode={handleInlineCode}
+          onLink={openLinkDialog}
+          onBlockquote={() => editorRef.current?.toggleBlockquote()}
+          onHeading={(lvl) => editorRef.current?.setHeading(lvl)}
+        />
+      )}
 
       {quickOpenVisible   && <QuickOpen dirPath={currentDirPath} onOpen={loadFile} onClose={() => setQuickOpenVisible(false)} />}
       {linkDialogVisible  && <LinkDialog initialLabel={linkInitialLabel} onConfirm={handleLinkConfirm} onClose={() => setLinkDialogVisible(false)} />}
