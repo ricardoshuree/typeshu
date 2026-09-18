@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: titlebar-icon-reload | plano: db335314 | 2026-09-18
-// +Reload em View menu; +ícone ramen SVG no lugar do T
+// [mcp-local harness] feature: polish-ui-2 | plano: bfad9e4c | 2026-09-18
+// Ícone ramen solid/filled estilo do anexo (tigela preenchida + espiral + hashis)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { NOTIFY } from '@shared/types'
 
@@ -147,13 +147,11 @@ export function TitleBar({ onAction }: TitleBarProps): React.JSX.Element {
 
   return (
     <div className="titlebar" ref={barRef}>
-      {/* Ícone ramen + nome — drag region */}
       <div className="titlebar-brand titlebar-drag">
         <RamenIcon />
         <span className="titlebar-appname">TypeShu</span>
       </div>
 
-      {/* Menu bar */}
       <nav className="titlebar-menubar">
         {MENUS.map((menu, idx) => (
           <div key={menu.label} className="titlebar-menu-wrap">
@@ -189,10 +187,8 @@ export function TitleBar({ onAction }: TitleBarProps): React.JSX.Element {
         ))}
       </nav>
 
-      {/* Drag region central */}
       <div className="titlebar-drag titlebar-drag--fill" />
 
-      {/* Window controls */}
       <div className="titlebar-wincontrols">
         <button className="titlebar-wc-btn titlebar-wc-btn--min"
           onMouseDown={(e) => e.preventDefault()}
@@ -218,34 +214,34 @@ export function TitleBar({ onAction }: TitleBarProps): React.JSX.Element {
   )
 }
 
-/* ── Ramen icon ──────────────────────────────────────────────────────────── */
+/* ── Ramen icon — solid/filled estilo do anexo ───────────────────────────── */
 function RamenIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 64 64" fill="none" aria-hidden="true"
-      style={{ flexShrink: 0 }} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-      {/* Hashis */}
-      <rect x="8" y="6" width="48" height="5" rx="2.5" strokeWidth="2" fill="none"/>
-      <line x1="14" y1="11" x2="10" y2="30" strokeWidth="2"/>
-      {/* Macarrão — 4 curvas */}
-      <path d="M20 11 Q22 20 18 28" strokeWidth="2" fill="none"/>
-      <path d="M26 11 Q28 20 24 28" strokeWidth="2" fill="none"/>
-      <path d="M32 11 Q34 20 30 28" strokeWidth="2" fill="none"/>
-      <path d="M38 11 Q40 20 36 28" strokeWidth="2" fill="none"/>
-      {/* Ovo */}
-      <ellipse cx="16" cy="28" rx="7" ry="6" strokeWidth="2" fill="none"/>
-      <circle cx="16" cy="28" r="3" strokeWidth="1.5" fill="none"/>
-      {/* Tigela — borda */}
-      <path d="M6 34 H58" strokeWidth="2.5"/>
-      <path d="M8 34 Q10 56 32 60 Q54 56 56 34" strokeWidth="2" fill="none"/>
-      {/* Pézinhos da tigela */}
-      <line x1="24" y1="60" x2="20" y2="64" strokeWidth="2"/>
-      <line x1="40" y1="60" x2="44" y2="64" strokeWidth="2"/>
-      <line x1="20" y1="63" x2="44" y2="63" strokeWidth="2"/>
-      {/* Pontinhos decorativos na tigela */}
-      <circle cx="18" cy="44" r="1.5" fill="currentColor" stroke="none"/>
-      <circle cx="26" cy="48" r="1.5" fill="currentColor" stroke="none"/>
-      <circle cx="34" cy="50" r="1.5" fill="currentColor" stroke="none"/>
-      <circle cx="42" cy="48" r="1.5" fill="currentColor" stroke="none"/>
+    <svg
+      width="18" height="18"
+      viewBox="0 0 100 100"
+      fill="currentColor"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
+    >
+      {/* Hashis — dois bastões inclinados */}
+      <rect x="58" y="4" width="6" height="44" rx="3"
+        transform="rotate(12 61 26)" />
+      <rect x="70" y="4" width="6" height="44" rx="3"
+        transform="rotate(18 73 26)" />
+
+      {/* Macarrão em espiral (arcos concêntricos filled) */}
+      {/* Anel externo */}
+      <path d="M28 48 A18 18 0 1 1 46 30 A14 14 0 1 0 32 44 A10 10 0 1 1 40 35 A6 6 0 1 0 35 41 Z"
+        fillRule="evenodd" />
+
+      {/* Tigela — forma principal preenchida */}
+      {/* Borda superior da tigela (faixa horizontal) */}
+      <rect x="8" y="52" width="84" height="10" rx="5" />
+      {/* Corpo da tigela */}
+      <path d="M12 62 Q14 90 50 92 Q86 90 88 62 Z" />
+      {/* Base da tigela */}
+      <rect x="36" y="90" width="28" height="6" rx="3" />
     </svg>
   )
 }

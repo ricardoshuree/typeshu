@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
-// frame: false + sem menu nativo + emite notify:win-maximized-changed
+// [mcp-local harness] feature: vscode-borders | plano: 3ec4464c | 2026-09-18
+// backgroundColor sólido #323233 + roundedCorners:true — sem transparent
 import { app, BrowserWindow, shell, session, Menu } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
@@ -13,6 +13,7 @@ function createWindow(): BrowserWindow {
     backgroundColor: '#323233',
     frame: false,
     titleBarStyle: 'hidden',
+    roundedCorners: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -20,12 +21,10 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  // Remove menu nativo — será recriado em HTML no renderer
   Menu.setApplicationMenu(null)
 
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' } })
 
-  // Notifica renderer de mudanças de maximize
   win.on('maximize',   () => win.webContents.send(NOTIFY.WIN_MAXIMIZED_CHANGED, true))
   win.on('unmaximize', () => win.webContents.send(NOTIFY.WIN_MAXIMIZED_CHANGED, false))
 
