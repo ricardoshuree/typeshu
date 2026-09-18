@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-drag-fix | plano: 18675a25 | 2026-09-18
-// +FILE_MOVE handler: move sourcePath para destDir/basename(sourcePath)
+// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
+// +handlers WIN_MINIMIZE/MAXIMIZE/CLOSE/IS_MAXIMIZED
 import { ipcMain, dialog, BrowserWindow, shell, app, clipboard } from 'electron'
 import { readFile, writeFile, readdir, stat, rename, mkdir } from 'fs/promises'
 import { join, extname, relative, dirname, basename } from 'path'
@@ -218,12 +218,10 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
-  // Move arquivo/pasta para outra pasta (drag & drop entre pastas)
   ipcMain.handle(IPC.FILE_MOVE, async (_e, sourcePath: string, destDir: string) => {
     try {
       const name    = basename(sourcePath)
       const newPath = join(destDir, name)
-      // Verifica se destino já existe
       try {
         await stat(newPath)
         return { success: false, error: `"${name}" já existe em "${destDir}"`, newPath }
@@ -266,5 +264,24 @@ export function registerIpcHandlers(): void {
     const list = await addRecent(filePath)
     BrowserWindow.getAllWindows()[0]?.webContents.send(NOTIFY.RECENT_CHANGED, list)
     return list
+  })
+
+  // ── Window controls ───────────────────────────────────────────────────
+  ipcMain.handle(IPC.WIN_MINIMIZE, () => {
+    BrowserWindow.getFocusedWindow()?.minimize()
+  })
+
+  ipcMain.handle(IPC.WIN_MAXIMIZE, () => {
+    const win = BrowserWindow.getFocusedWindow(); if (!win) return
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
+  })
+
+  ipcMain.handle(IPC.WIN_CLOSE, () => {
+    BrowserWindow.getFocusedWindow()?.close()
+  })
+
+  ipcMain.handle(IPC.WIN_IS_MAXIMIZED, () => {
+    return BrowserWindow.getFocusedWindow()?.isMaximized() ?? false
   })
 }

@@ -1,6 +1,5 @@
-// [mcp-local harness] feature: sidebar-drag-fix | plano: 18675a25 | 2026-09-18
-// +IPC.FILE_MOVE para mover arquivo/pasta para outra pasta
-
+// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
+// +WIN_MINIMIZE/MAXIMIZE/CLOSE/IS_MAXIMIZED ao IPC
 export interface OpenFile {
   path: string; name: string; content: string; isDirty: boolean
 }
@@ -75,7 +74,7 @@ export const IPC = {
   FILE_NEW:         'file:new',
   FILE_NEW_IN_DIR:  'file:new-in-dir',
   FILE_RENAME:      'file:rename',
-  FILE_MOVE:        'file:move',       // move sourcePath → destDir/name
+  FILE_MOVE:        'file:move',
   FILE_DELETE:      'file:delete',
   FILE_REVEAL:      'file:reveal',
   FILE_COPY_PATH:   'file:copy-path',
@@ -89,9 +88,15 @@ export const IPC = {
   PREFS_SET:        'prefs:set',
   RECENT_GET:       'recent:get',
   RECENT_ADD:       'recent:add',
+  // Window controls
+  WIN_MINIMIZE:     'win:minimize',
+  WIN_MAXIMIZE:     'win:maximize',
+  WIN_CLOSE:        'win:close',
+  WIN_IS_MAXIMIZED: 'win:is-maximized',
 } as const
 
 export const NOTIFY = {
   FILE_CHANGED_EXTERNALLY: 'notify:file-changed',
   RECENT_CHANGED:          'notify:recent-changed',
+  WIN_MAXIMIZED_CHANGED:   'notify:win-maximized-changed',
 } as const

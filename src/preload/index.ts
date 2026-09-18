@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-drag-fix | plano: 18675a25 | 2026-09-18
-// +moveFile via IPC.FILE_MOVE
+// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
+// +windowMinimize/Maximize/Close/isMaximized + NOTIFY.WIN_MAXIMIZED_CHANGED
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
 
@@ -30,6 +30,7 @@ const LISTEN_CHANNELS = [
   'recent:open',
   NOTIFY.FILE_CHANGED_EXTERNALLY,
   NOTIFY.RECENT_CHANGED,
+  NOTIFY.WIN_MAXIMIZED_CHANGED,
 ] as const
 
 type ListenChannel = typeof LISTEN_CHANNELS[number]
@@ -57,6 +58,12 @@ contextBridge.exposeInMainWorld('api', {
   getRecent:         () => ipcRenderer.invoke(IPC.RECENT_GET),
   addRecent:         (filePath: string) => ipcRenderer.invoke(IPC.RECENT_ADD, filePath),
 
+  // Window controls
+  windowMinimize:   () => ipcRenderer.invoke(IPC.WIN_MINIMIZE),
+  windowMaximize:   () => ipcRenderer.invoke(IPC.WIN_MAXIMIZE),
+  windowClose:      () => ipcRenderer.invoke(IPC.WIN_CLOSE),
+  windowIsMaximized: () => ipcRenderer.invoke(IPC.WIN_IS_MAXIMIZED),
+
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     if (LISTEN_CHANNELS.includes(channel as ListenChannel)) {
       ipcRenderer.on(channel, (_e, ...args) => cb(...args))
@@ -67,4 +74,9 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.removeAllListeners(channel)
     }
   },
+})
+
+// Notifica renderer quando janela é maximizada/restaurada
+ipcRenderer.on('notify:win-maximized-changed', (_e, isMaximized: boolean) => {
+  // reemite para o renderer via o canal de listen
 })

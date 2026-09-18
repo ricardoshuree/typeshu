@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: emoji-plugin | plano: dfdaec79 | 2026-09-18
-// +emoji: :smile: → 😄 via @milkdown/plugin-emoji
+// [mcp-local harness] feature: toolbar-footnote-btn | plano: 2b62e15f | 2026-09-18
+// +insertFootnote(): insere [^N] no cursor e [^N]: no final, move cursor para a definição
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -46,6 +46,7 @@ export interface EditorHandle {
   setHeading:           (level: 0 | 1 | 2 | 3 | 4 | 5 | 6) => void
   insertCodeFence:      (lang?: string) => void
   insertTable:          () => void
+  insertFootnote:       () => void
   getSelectedText:      () => string
   replaceSelectionWith: (text: string) => void
   find:                 (query: string, caseSensitive?: boolean) => void
@@ -104,6 +105,70 @@ function doInsertCodeFence(ctx: Ctx, lang = '') {
     dispatch(tr.scrollIntoView())
     view.focus()
   } catch (e) { console.warn('insertCodeFence error:', e) }
+}
+
+// ── Footnote insert ───────────────────────────────────────────────────────
+const REF_RE_DETECT = /\[\^(\d+)\](?!:)/g
+const DEF_RE_DETECT = /\[\^(\d+)\]:/g
+
+function nextFootnoteIndex(view: EditorView): number {
+  const text = view.state.doc.textContent
+  const usedRefs = new Set<number>()
+  let m: RegExpExecArray | null
+  REF_RE_DETECT.lastIndex = 0
+  while ((m = REF_RE_DETECT.exec(text)) !== null) usedRefs.add(Number(m[1]))
+  DEF_RE_DETECT.lastIndex = 0
+  while ((m = DEF_RE_DETECT.exec(text)) !== null) usedRefs.add(Number(m[1]))
+  let n = 1
+  while (usedRefs.has(n)) n++
+  return n
+}
+
+function doInsertFootnote(ctx: Ctx): void {
+  try {
+    const view = getView(ctx); if (!view) return
+    if (!view.hasFocus()) view.focus()
+    const { state } = view
+    const n       = nextFootnoteIndex(view)
+    const refText = `[^${n}]`
+    const defText = `[^${n}]: `
+
+    // Posição do cursor atual
+    const cursorPos = state.selection.from
+
+    // Posição do final do documento para inserir a definição
+    const docEnd = state.doc.content.size
+
+    // Insere a referência no cursor e a definição no final
+    // Primeiro insere a definição (fim do doc) para não invalidar cursorPos
+    let tr = state.tr
+
+    // Insere parágrafo com a definição no final do documento
+    const paraType = state.schema.nodes['paragraph']
+    if (paraType) {
+      const defNode = paraType.create(null, state.schema.text(defText))
+      tr = tr.insert(docEnd, defNode)
+    } else {
+      tr = tr.insertText('\n' + defText, docEnd)
+    }
+
+    // Insere a referência na posição original do cursor
+    tr = tr.insertText(refText, cursorPos)
+
+    // Calcula a posição do final da definição para mover o cursor
+    // +refText.length porque inserimos o ref antes (deslocou o doc)
+    // +2 para o nodeSize do parágrafo (abertura)
+    // +defText.length para depois do ": "
+    const defNodeStart = docEnd + refText.length + 1  // +1 abertura do parágrafo
+    const defCursorPos = defNodeStart + defText.length
+
+    try {
+      tr = tr.setSelection(TextSelection.create(tr.doc, defCursorPos))
+    } catch { /* se a posição falhar, não move o cursor */ }
+
+    view.dispatch(tr.scrollIntoView())
+    view.focus()
+  } catch (e) { console.warn('insertFootnote error:', e) }
 }
 
 function isInNodeType(view: EditorView, nodeTypeName: string): boolean {
@@ -299,6 +364,12 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
       e.action(callCommand(insertTableCommand.key))
     },
+
+    insertFootnote: () => {
+      const e = get(); if (!e) return
+      e.action((ctx) => doInsertFootnote(ctx))
+    },
+
     setHeading: (level: 0|1|2|3|4|5|6) => {
       const e = get(); if (!e) return
       e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })

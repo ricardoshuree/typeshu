@@ -1,10 +1,12 @@
-// [mcp-local harness] feature: sidebar-drag-drop-app | plano: 9b40ba8a | 2026-09-18
-// +currentFilePath no MilkdownAdapter para dropPlugin calcular caminho relativo
+// [mcp-local harness] feature: layout-statusbar | plano: c07ea347 | 2026-09-18
+// StatusBar movido para fora de editor-area → nível de app-body
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { setFindOpener, setReplaceOpener } from './editor/shortcutPlugin'
 import { Sidebar } from './components/Sidebar'
 import { Toolbar } from './components/Toolbar'
+import { TitleBar } from './components/TitleBar'
+import { ActivityBar } from './components/ActivityBar'
 import { FloatingToolbar } from './components/FloatingToolbar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
@@ -63,6 +65,10 @@ declare const window: Window & {
     setPrefs:    (p: Partial<UserPreferences>) => Promise<UserPreferences>
     getRecent:   () => Promise<RecentFile[]>
     addRecent:   (filePath: string) => Promise<RecentFile[]>
+    windowMinimize:    () => Promise<void>
+    windowMaximize:    () => Promise<void>
+    windowClose:       () => Promise<void>
+    windowIsMaximized: () => Promise<boolean>
     on:          (channel: string, cb: (...args: unknown[]) => void) => void
     removeAllListeners: (channel: string) => void
   }
@@ -304,36 +310,6 @@ export default function App(): React.JSX.Element {
     editorRef.current?.replaceSelectionWith(sel ? `\`${sel}\`` : '``')
   }, [])
 
-  useEffect(() => {
-    window.api.on('ui:open-quickly',  () => setQuickOpenVisible(true))
-    window.api.on('ui:global-search', () => { setGlobalSearchVisible(true); setSidebarOpen(true) })
-    window.api.on('ui:export-html',   () => exportHTML(fileName || 'documento'))
-    window.api.on('ui:export-pdf',    () => window.print())
-    window.api.on('ui:preferences',   () => setPrefsVisible(true))
-    window.api.on('format:bold',           () => editorRef.current?.toggleBold())
-    window.api.on('format:italic',         () => editorRef.current?.toggleItalic())
-    window.api.on('format:strikethrough',  () => editorRef.current?.toggleStrikethrough())
-    window.api.on('format:blockquote',     () => editorRef.current?.toggleBlockquote())
-    window.api.on('format:bullet-list',    () => editorRef.current?.toggleBulletList())
-    window.api.on('format:ordered-list',   () => editorRef.current?.toggleOrderedList())
-    window.api.on('format:table',          () => editorRef.current?.insertTable())
-    window.api.on('format:link',           () => openLinkDialog())
-    window.api.on('format:code-fence',     () => editorRef.current?.insertCodeFence())
-    window.api.on('format:heading', (...args: unknown[]) => editorRef.current?.setHeading((args[0] as number) as 0|1|2|3|4|5|6))
-    window.api.on('view:toggle-sidebar',    () => setSidebarOpen(v => !v))
-    window.api.on('view:toggle-source',     () => setSourceMode(v => !v))
-    window.api.on('view:toggle-focus',      () => setFocusMode(v => !v))
-    window.api.on('view:toggle-typewriter', () => setTypewriterMode(v => !v))
-    return () => {
-      ;['ui:open-quickly','ui:global-search','ui:export-html','ui:export-pdf','ui:preferences',
-        'format:bold','format:italic','format:strikethrough','format:blockquote',
-        'format:bullet-list','format:ordered-list','format:table',
-        'format:link','format:code-fence','format:heading',
-        'view:toggle-sidebar','view:toggle-source','view:toggle-focus','view:toggle-typewriter',
-      ].forEach(ch => window.api.removeAllListeners(ch))
-    }
-  }, [fileName, openLinkDialog])
-
   const handleSaveAs = useCallback(async () => {
     const r = await window.api.saveFileAs(editorContentRef.current)
     if (r.success && r.path) {
@@ -355,12 +331,53 @@ export default function App(): React.JSX.Element {
     setFrontMatter(null); setOutlineMarkdown(''); setExternalChanged(false); setAutoSaved(false)
   }, [])
 
-  useEffect(() => {
-    window.api.on(IPC.FILE_SAVE,    () => handleSave())
-    window.api.on(IPC.FILE_SAVE_AS, () => handleSaveAs())
-    window.api.on(IPC.FILE_NEW,     () => handleNew())
-    return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
-  }, [handleSave, handleSaveAs, handleNew])
+  const handleTitleBarAction = useCallback((action: string, payload?: unknown) => {
+    switch (action) {
+      case 'file:new':          handleNew(); break
+      case 'file:open':         window.api.openFile().then(r => { if (r.success && r.path && r.content !== undefined) loadFile(r.path, r.content) }); break
+      case 'file:save':         handleSave(); break
+      case 'file:save-as':      handleSaveAs(); break
+      case 'ui:open-quickly':   setQuickOpenVisible(true); break
+      case 'ui:global-search':  setGlobalSearchVisible(true); setSidebarOpen(true); break
+      case 'ui:export-pdf':     window.print(); break
+      case 'ui:export-html':    exportHTML(fileName); break
+      case 'ui:preferences':    setPrefsVisible(true); break
+      case 'ui:find':           openFind(); break
+      case 'ui:replace':        openReplace(); break
+      case 'format:bold':       editorRef.current?.toggleBold(); break
+      case 'format:italic':     editorRef.current?.toggleItalic(); break
+      case 'format:strikethrough': editorRef.current?.toggleStrikethrough(); break
+      case 'format:link':       openLinkDialog(); break
+      case 'format:code-fence': editorRef.current?.insertCodeFence(); break
+      case 'format:blockquote': editorRef.current?.toggleBlockquote(); break
+      case 'format:bullet-list':  editorRef.current?.toggleBulletList(); break
+      case 'format:ordered-list': editorRef.current?.toggleOrderedList(); break
+      case 'format:table':      editorRef.current?.insertTable(); break
+      case 'format:heading':    editorRef.current?.setHeading((payload as 0|1|2|3|4|5|6) ?? 0); break
+      case 'view:toggle-sidebar':    setSidebarOpen(v => !v); break
+      case 'view:toggle-source':     setSourceMode(v => !v); break
+      case 'view:toggle-focus':      setFocusMode(v => !v); break
+      case 'view:toggle-typewriter': setTypewriterMode(v => !v); break
+      case 'view:reload':       window.location.reload(); break
+      case 'view:fullscreen':
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {})
+        else document.exitFullscreen().catch(() => {})
+        break
+      case 'view:zoom-in':    document.documentElement.style.zoom = String(Math.min(2, parseFloat(document.documentElement.style.zoom || '1') + 0.1)); break
+      case 'view:zoom-out':   document.documentElement.style.zoom = String(Math.max(0.5, parseFloat(document.documentElement.style.zoom || '1') - 0.1)); break
+      case 'view:zoom-reset': document.documentElement.style.zoom = '1'; break
+      case 'win:minimize':    window.api.windowMinimize(); break
+      case 'win:maximize':    window.api.windowMaximize(); break
+      case 'win:close':       window.api.windowClose(); break
+      case 'app:quit':        window.api.windowClose(); break
+      case 'edit:undo':       document.execCommand('undo'); break
+      case 'edit:redo':       document.execCommand('redo'); break
+      case 'edit:cut':        document.execCommand('cut'); break
+      case 'edit:copy':       document.execCommand('copy'); break
+      case 'edit:paste':      document.execCommand('paste'); break
+      case 'edit:select-all': document.execCommand('selectAll'); break
+    }
+  }, [handleNew, handleSave, handleSaveAs, loadFile, openFind, openReplace, openLinkDialog, fileName])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey; const shift = e.shiftKey; const alt = e.altKey
@@ -382,7 +399,12 @@ export default function App(): React.JSX.Element {
     if (ctrl && shift && !alt && key === '0') { e.preventDefault(); editorRef.current?.setHeading(0); return }
     if (ctrl && !shift && !alt && key === '/') { e.preventDefault(); setSourceMode(v => !v); return }
     if (ctrl && shift && !alt && key === 'l')  { e.preventDefault(); setSidebarOpen(v => !v); return }
-  }, [openLinkDialog, openFind, openReplace])
+    if (ctrl && !shift && !alt && key === 'n') { e.preventDefault(); handleNew(); return }
+    if (ctrl && !shift && !alt && key === 'r') { e.preventDefault(); window.location.reload(); return }
+    if (ctrl && !shift && !alt && key === 's') { e.preventDefault(); handleSave(); return }
+    if (ctrl && shift && !alt && key === 's')  { e.preventDefault(); handleSaveAs(); return }
+    if (ctrl && !shift && !alt && key === 'p') { e.preventDefault(); setQuickOpenVisible(true); return }
+  }, [openLinkDialog, openFind, openReplace, handleNew, handleSave, handleSaveAs])
 
   const handleCaptureKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'F8')  { e.preventDefault(); e.stopPropagation(); setFocusMode(v => !v) }
@@ -412,6 +434,13 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => { document.title = `${isDirty ? '● ' : ''}${fileName} — TypeShu` }, [fileName, isDirty])
 
+  useEffect(() => {
+    window.api.on(IPC.FILE_SAVE,    () => handleSave())
+    window.api.on(IPC.FILE_SAVE_AS, () => handleSaveAs())
+    window.api.on(IPC.FILE_NEW,     () => handleNew())
+    return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
+  }, [handleSave, handleSaveAs, handleNew])
+
   const shellClass = [
     'app-shell',
     focusMode      ? 'focus-mode'      : '',
@@ -421,18 +450,16 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className={shellClass}>
-      <Toolbar
-        fileName={fileName}
-        isDirty={isDirty}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen(v => !v)}
-        onBulletList={() => editorRef.current?.toggleBulletList()}
-        onOrderedList={() => editorRef.current?.toggleOrderedList()}
-        onInsertTable={() => editorRef.current?.insertTable()}
-        onPrefs={() => setPrefsVisible(true)}
-      />
+      <TitleBar onAction={handleTitleBarAction} />
 
+      {/* app-body: activity bar + sidebar + editor (sem status bar) */}
       <div className="app-body">
+        <ActivityBar
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(v => !v)}
+          onQuickOpen={() => setQuickOpenVisible(true)}
+        />
+
         {sidebarOpen && (
           globalSearchVisible ? (
             <div className="sidebar">
@@ -456,6 +483,16 @@ export default function App(): React.JSX.Element {
         )}
 
         <div className="editor-area">
+          {filePath && (
+            <Toolbar
+              onBulletList={() => editorRef.current?.toggleBulletList()}
+              onOrderedList={() => editorRef.current?.toggleOrderedList()}
+              onInsertTable={() => editorRef.current?.insertTable()}
+              onInsertFootnote={() => editorRef.current?.insertFootnote()}
+              onPrefs={() => setPrefsVisible(true)}
+            />
+          )}
+
           {externalChanged && (
             <ExternalChangeBanner
               onReload={handleReloadExternal}
@@ -496,9 +533,11 @@ export default function App(): React.JSX.Element {
               />
             </div>
           )}
-          <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
         </div>
       </div>
+
+      {/* Status bar — fora do app-body, largura total abaixo de tudo */}
+      <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
 
       {!sourceMode && (
         <FloatingToolbar

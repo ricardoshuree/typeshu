@@ -60,4 +60,12 @@ cx + dy
 \end{pmatrix}
 $$
 
-### teste tail
+### teste tail \[^1]
+
+<br />
+
+<br />
+
+aqui nao 
+
+[^1]: texto explicatico no ^1
