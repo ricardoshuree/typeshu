@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: find-css | plano: aacdbc8f | 2026-09-17 22:00:52
-// CSS com estilos FindBar e highlights find-match / find-match--current
-// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner, link dialog, sidebar file ops, find bar
+// [mcp-local harness] feature: replace-in-document | plano: 25f77ea9 | 2026-09-17 22:15:21
+// CSS: FindBar refatorado com find-bar-row, find-bar-toggle, find-bar-toggle-spacer, find-bar-btn--replace
+// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner, link dialog, sidebar file ops, find+replace bar
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -137,30 +137,48 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-muted); pointer-events: none; float: left; height: 0; }
 
 /* ── Find highlights ───────────────────────────────────────────────────── */
-.find-match {
-  background: var(--find-match);
-  color: #1a1a1a;
-  border-radius: 2px;
-}
-.find-match--current {
-  background: var(--find-match-current);
-  color: #fff;
-  border-radius: 2px;
-  outline: 2px solid color-mix(in srgb, var(--find-match-current) 60%, transparent);
-}
+.find-match { background: var(--find-match); color: #1a1a1a; border-radius: 2px; }
+.find-match--current { background: var(--find-match-current); color: #fff; border-radius: 2px; outline: 2px solid color-mix(in srgb, var(--find-match-current) 60%, transparent); }
 
-/* ── Find Bar ──────────────────────────────────────────────────────────── */
+/* ── Find / Replace Bar ────────────────────────────────────────────────── */
 .find-bar {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  flex-direction: column;
+  gap: 0;
+  padding: 5px 10px 6px;
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   font-family: var(--font-ui);
   font-size: 13px;
 }
+
+/* Cada linha da barra (find e replace) */
+.find-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+.find-bar-row--replace { padding-top: 4px; }
+
+/* Botão ▸/▾ para toggle replace */
+.find-bar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  line-height: 1;
+  width: 18px;
+}
+.find-bar-toggle:hover { background: var(--border); color: var(--text); }
+
+/* Espaçador que alinha o campo replace com o campo find */
+.find-bar-toggle-spacer { width: 18px; flex-shrink: 0; }
 
 .find-bar-input-wrap {
   display: flex;
@@ -191,12 +209,7 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 }
 .find-bar-input::placeholder { color: var(--text-muted); }
 
-.find-bar-count {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+.find-bar-count { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .find-bar-count--no-match { color: var(--danger); }
 
 .find-bar-btn {
@@ -215,8 +228,15 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .find-bar-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
 .find-bar-btn:disabled { opacity: 0.35; cursor: default; }
 .find-bar-btn--active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.find-bar-btn--case { font-weight: 700; font-size: 11px; letter-spacing: -0.03em; }
+.find-bar-btn--case  { font-weight: 700; font-size: 11px; letter-spacing: -0.03em; }
 .find-bar-btn--close { font-size: 11px; }
+.find-bar-btn--replace {
+  border-color: var(--border);
+  color: var(--text);
+  font-size: 12px;
+  padding: 3px 10px;
+}
+.find-bar-btn--replace:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 /* ── Task List ─────────────────────────────────────────────────────────── */
 .ProseMirror ul[data-type="taskList"],.ProseMirror ul.task-list { list-style: none; padding-left: 0.25em; }

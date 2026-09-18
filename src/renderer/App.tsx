@@ -1,9 +1,9 @@
-// [mcp-local harness] feature: find-in-document | plano: 4556a48f | 2026-09-17 21:58:36
-// App.tsx com FindBar integrado, Ctrl+F, handleFindState, setFindOpener
-// App.tsx — com FindBar (Ctrl+F) integrado
+// [mcp-local harness] feature: replace-in-document | plano: 25f77ea9 | 2026-09-17 22:13:07
+// App.tsx com Replace: findReplace state, openReplace, setReplaceOpener, Ctrl+H, handlers replaceOne/replaceAll
+// App.tsx — Find (Ctrl+F) + Replace (Ctrl+H)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
-import { setFindOpener } from './editor/shortcutPlugin'
+import { setFindOpener, setReplaceOpener } from './editor/shortcutPlugin'
 import { Sidebar } from './components/Sidebar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
@@ -23,6 +23,7 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 - Abra um arquivo com \`Ctrl+O\`
 - Busca rápida com \`Ctrl+P\`
 - Busca no documento com \`Ctrl+F\`
+- Substituir no documento com \`Ctrl+H\`
 - Busca em arquivos com \`Ctrl+Shift+F\`
 - Toggle sidebar com \`Ctrl+Shift+L\`
 - Salve com \`Ctrl+S\`
@@ -128,10 +129,11 @@ export default function App(): React.JSX.Element {
   const [externalChanged, setExternalChanged]         = useState(false)
   const [linkDialogVisible, setLinkDialogVisible]     = useState(false)
   const [linkInitialLabel, setLinkInitialLabel]       = useState('')
-  // Find state
-  const [findVisible, setFindVisible]   = useState(false)
-  const [findMatches, setFindMatches]   = useState(0)
-  const [findCurrent, setFindCurrent]   = useState(-1)
+  // Find / Replace state
+  const [findVisible, setFindVisible]     = useState(false)
+  const [findReplace, setFindReplace]     = useState(false)  // true = modo replace
+  const [findMatches, setFindMatches]     = useState(0)
+  const [findCurrent, setFindCurrent]     = useState(-1)
 
   const editorContentRef = useRef(WELCOME_MD)
   const filePathRef      = useRef<string | null>(null)
@@ -141,13 +143,15 @@ export default function App(): React.JSX.Element {
   useEffect(() => { filePathRef.current = filePath }, [filePath])
   useEffect(() => { isDirtyRef.current = isDirty },   [isDirty])
 
-  // Registra o opener do FindBar no shortcutPlugin (Ctrl+F dentro do editor)
+  // Registra openers no shortcutPlugin
   useEffect(() => {
-    setFindOpener(() => setFindVisible(true))
-    return () => setFindOpener(() => {})
+    setFindOpener(() => { setFindReplace(false); setFindVisible(true) })
+    setReplaceOpener(() => { setFindReplace(true); setFindVisible(true) })
+    return () => { setFindOpener(() => {}); setReplaceOpener(() => {}) }
   }, [])
 
-  const openFind = useCallback(() => setFindVisible(true), [])
+  const openFind    = useCallback(() => { setFindReplace(false); setFindVisible(true) }, [])
+  const openReplace = useCallback(() => { setFindReplace(true);  setFindVisible(true) }, [])
 
   const closeFind = useCallback(() => {
     setFindVisible(false)
@@ -157,21 +161,14 @@ export default function App(): React.JSX.Element {
 
   const handleFindState = useCallback((matches: number, current: number) => {
     setFindMatches(matches); setFindCurrent(current)
-    // Scroll automático ao match atual
     setTimeout(() => editorRef.current?.scrollToCurrentMatch(), 0)
   }, [])
 
-  const handleFind = useCallback((query: string, caseSensitive: boolean) => {
-    editorRef.current?.find(query, caseSensitive)
-  }, [])
-
-  const handleFindNext = useCallback(() => {
-    editorRef.current?.findNext()
-  }, [])
-
-  const handleFindPrev = useCallback(() => {
-    editorRef.current?.findPrev()
-  }, [])
+  const handleFind       = useCallback((q: string, cs: boolean) => editorRef.current?.find(q, cs), [])
+  const handleFindNext   = useCallback(() => editorRef.current?.findNext(), [])
+  const handleFindPrev   = useCallback(() => editorRef.current?.findPrev(), [])
+  const handleReplaceOne = useCallback((r: string) => editorRef.current?.replaceOne(r), [])
+  const handleReplaceAll = useCallback((r: string) => editorRef.current?.replaceAll(r), [])
 
   const loadFile = useCallback((path: string, content: string) => {
     const fm = extractFrontMatter(content)
@@ -193,7 +190,7 @@ export default function App(): React.JSX.Element {
     setIsDirty(true); setWordCountContent(full); setOutlineMarkdown(md); setAutoSaved(false)
   }, [])
 
-  const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
+  const handleDirChange   = useCallback((dir: string) => setCurrentDirPath(dir), [])
 
   const handleFileDelete = useCallback((deletedPath: string) => {
     if (deletedPath === filePathRef.current) {
@@ -208,8 +205,7 @@ export default function App(): React.JSX.Element {
 
   const handleFileRename = useCallback((oldPath: string, newPath: string) => {
     if (oldPath === filePathRef.current) {
-      setFilePath(newPath)
-      setFileName(newPath.split(/[\\/]/).pop() ?? newPath)
+      setFilePath(newPath); setFileName(newPath.split(/[\\/]/).pop() ?? newPath)
       window.api.watchStart(newPath)
     }
   }, [])
@@ -291,8 +287,7 @@ export default function App(): React.JSX.Element {
   }, [filePath, handleSaveAs])
 
   const handleNew = useCallback(() => {
-    window.api.watchStop()
-    editorContentRef.current = ''
+    window.api.watchStop(); editorContentRef.current = ''
     setInitialContent(''); setEditorKey(k => k + 1); setFilePath(null); setFileName('Sem título')
     setIsDirty(false); setSourceMode(false); setWordCountContent('')
     setFrontMatter(null); setOutlineMarkdown(''); setExternalChanged(false); setAutoSaved(false)
@@ -318,11 +313,12 @@ export default function App(): React.JSX.Element {
     if (ctrl && !shift && !alt && key === 'k') { e.preventDefault(); openLinkDialog(); return }
     if (ctrl && shift && !alt && key === 'k')  { e.preventDefault(); editorRef.current?.insertCodeFence(); return }
     if (ctrl && !shift && !alt && key === 'f') { e.preventDefault(); openFind(); return }
+    if (ctrl && !shift && !alt && key === 'h') { e.preventDefault(); openReplace(); return }
     if (ctrl && !shift && !alt && key >= '1' && key <= '6') { e.preventDefault(); editorRef.current?.setHeading(Number(key) as 1|2|3|4|5|6); return }
     if (ctrl && shift && !alt && key === '0') { e.preventDefault(); editorRef.current?.setHeading(0); return }
     if (ctrl && !shift && !alt && key === '/') { e.preventDefault(); setSourceMode(v => !v); return }
     if (ctrl && shift && !alt && key === 'l')  { e.preventDefault(); setSidebarOpen(v => !v); return }
-  }, [openLinkDialog, openFind])
+  }, [openLinkDialog, openFind, openReplace])
 
   const handleCaptureKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'F8')  { e.preventDefault(); e.stopPropagation(); setFocusMode(v => !v) }
@@ -372,9 +368,12 @@ export default function App(): React.JSX.Element {
         {externalChanged && <ExternalChangeBanner onReload={handleReloadExternal} onDismiss={() => setExternalChanged(false)} />}
         {findVisible && (
           <FindBar
+            showReplace={findReplace}
             onFind={handleFind}
             onNext={handleFindNext}
             onPrev={handleFindPrev}
+            onReplaceOne={handleReplaceOne}
+            onReplaceAll={handleReplaceAll}
             onClose={closeFind}
             matchCount={findMatches}
             currentMatch={findCurrent}

@@ -1,10 +1,10 @@
-// [mcp-local harness] feature: fix-find-editorview | plano: 32024d9b | 2026-09-17 22:08:19
-// Fix getView: usa editorViewCtx do Milkdown v7 em vez de rootCtx.editorView
-// MilkdownAdapter — fix getEditorView: usa editorViewCtx do Milkdown v7
+// [mcp-local harness] feature: replace-in-document | plano: 25f77ea9 | 2026-09-17 22:11:13
+// Adiciona replaceOne e replaceAll ao EditorHandle; usa TextSelection importado direto
+// MilkdownAdapter — com replaceOne e replaceAll
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
-  type Ctx,
+  editorViewCtx, type Ctx,
 } from '@milkdown/core'
 import { commonmark, wrapInHeadingCommand } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
@@ -13,6 +13,7 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { math } from '@milkdown/plugin-math'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { callCommand, $prose } from '@milkdown/utils'
+import { TextSelection } from 'prosemirror-state'
 import { createAutoPairPlugin }    from './autoPairPlugin'
 import { createTaskListPlugin }    from './taskListPlugin'
 import { createFrontMatterPlugin } from './frontMatterPlugin'
@@ -21,9 +22,6 @@ import { createShortcutPlugin }    from './shortcutPlugin'
 import { createFindPlugin, findPluginKey } from './findPlugin'
 import type { EditorProps } from './EditorAdapter'
 import 'katex/dist/katex.min.css'
-
-// Importa editorViewCtx do Milkdown v7 — é aqui que fica o EditorView do ProseMirror
-import { editorViewCtx } from '@milkdown/core'
 
 export interface EditorHandle {
   toggleBold:          () => void
@@ -39,6 +37,8 @@ export interface EditorHandle {
   clearFind:           () => void
   getFindState:        () => { matches: number; current: number }
   scrollToCurrentMatch:() => void
+  replaceOne:          (replacement: string) => void
+  replaceAll:          (replacement: string) => void
 }
 
 interface MilkdownEditorProps extends EditorProps {
@@ -46,18 +46,15 @@ interface MilkdownEditorProps extends EditorProps {
   onFindState?: (matches: number, current: number) => void
 }
 
-// Pega o EditorView via editorViewCtx (correto no Milkdown v7)
 function getView(ctx: Ctx) {
   try { return ctx.get(editorViewCtx) } catch { return null }
 }
 
 function toggleMark(markName: string, ctx: Ctx) {
   try {
-    const view = getView(ctx)
-    if (!view) return
+    const view = getView(ctx); if (!view) return
     const { state, dispatch } = view
-    const mark = state.schema.marks[markName]
-    if (!mark) return
+    const mark = state.schema.marks[markName]; if (!mark) return
     const { from, to, empty } = state.selection
     if (empty) {
       const stored = state.storedMarks ?? []
@@ -76,14 +73,12 @@ function toggleMark(markName: string, ctx: Ctx) {
 
 function doInsertCodeFence(ctx: Ctx, lang = '') {
   try {
-    const view = getView(ctx)
-    if (!view) return
+    const view = getView(ctx); if (!view) return
     const { state, dispatch } = view
     const nodeType = state.schema.nodes['code_block'] ?? state.schema.nodes['fence'] ?? null
     if (!nodeType) return
     const { $from } = state.selection
     if ($from.parent.type === nodeType) return
-    const { TextSelection } = require('prosemirror-state')
     const insertPos = $from.after()
     const node = nodeType.create({ language: lang })
     const tr = state.tr.insert(insertPos, node)
@@ -178,8 +173,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
         const view = getView(ctx); if (!view) return
-        const tr = view.state.tr.setMeta(findPluginKey, { type: 'find', query, caseSensitive })
-        dispatchAndNotify(view, tr)
+        dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'find', query, caseSensitive }))
       })
     },
 
@@ -222,15 +216,59 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
         const view = getView(ctx); if (!view) return
+        const s = findPluginKey.getState(view.state); if (!s || s.current < 0 || !s.matches.length) return
+        const match = s.matches[s.current]
+        try {
+          view.dispatch(view.state.tr
+            .setSelection(TextSelection.create(view.state.doc, match.from, match.to))
+            .scrollIntoView()
+          )
+        } catch {}
+      })
+    },
+
+    // ── Replace ────────────────────────────────────────────────────────
+    replaceOne: (replacement: string) => {
+      const editor = get(); if (!editor) return
+      editor.action((ctx) => {
+        const view = getView(ctx); if (!view) return
         const s = findPluginKey.getState(view.state)
         if (!s || s.current < 0 || !s.matches.length) return
         const match = s.matches[s.current]
-        try {
-          const { TextSelection } = require('prosemirror-state')
-          view.dispatch(view.state.tr.setSelection(
-            TextSelection.create(view.state.doc, match.from, match.to)
-          ).scrollIntoView())
-        } catch {}
+        // Substitui o match atual e re-executa a busca para atualizar matches
+        const tr = view.state.tr
+          .insertText(replacement, match.from, match.to)
+          // Após substituir, re-busca para atualizar decorations
+          .setMeta(findPluginKey, { type: 'find', query: s.query, caseSensitive: s.caseSensitive })
+        view.dispatch(tr)
+        // Avança para o próximo match
+        const s2 = findPluginKey.getState(view.state)
+        if (s2 && s2.matches.length > 0) {
+          dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'next' }))
+        } else {
+          onFindStateRef.current?.(s2?.matches.length ?? 0, s2?.current ?? -1)
+        }
+        view.focus()
+      })
+    },
+
+    replaceAll: (replacement: string) => {
+      const editor = get(); if (!editor) return
+      editor.action((ctx) => {
+        const view = getView(ctx); if (!view) return
+        const s = findPluginKey.getState(view.state)
+        if (!s || !s.matches.length) return
+        // Aplica todas as substituições de trás para frente (preserva posições)
+        let tr = view.state.tr
+        const matches = [...s.matches].reverse()
+        for (const match of matches) {
+          tr = tr.insertText(replacement, match.from, match.to)
+        }
+        // Limpa o find após substituir tudo
+        tr = tr.setMeta(findPluginKey, { type: 'clear' })
+        view.dispatch(tr)
+        onFindStateRef.current?.(0, -1)
+        view.focus()
       })
     },
   }), [get])

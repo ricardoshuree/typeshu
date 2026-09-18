@@ -1,15 +1,13 @@
-// [mcp-local harness] feature: find-in-document | plano: 4556a48f | 2026-09-17 21:57:12
-// shortcutPlugin: adiciona Ctrl+F que suprime o find nativo e chama setFindOpener callback
+// [mcp-local harness] feature: replace-in-document | plano: 25f77ea9 | 2026-09-17 22:11:33
+// shortcutPlugin: adiciona Ctrl+H para abrir replace via setReplaceOpener
 /**
  * shortcutPlugin.ts
  *
- * Plugin ProseMirror para atalhos que precisam rodar antes do autoPair:
- *
- *   Ctrl+Shift+K  → insere code_block após o parágrafo atual
- *   Alt+Shift+5   → toggle strikethrough
- *   Ctrl+F        → sinaliza abertura do FindBar (preventDefault para suprimir o find nativo do Electron)
- *
- * Registrado antes do autoPairPlugin no MilkdownAdapter.
+ * Plugin ProseMirror para atalhos antes do autoPair:
+ *   Ctrl+Shift+K → code_block
+ *   Alt+Shift+5  → strikethrough
+ *   Ctrl+F       → abre FindBar (modo find)
+ *   Ctrl+H       → abre FindBar (modo replace)
  */
 
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
@@ -17,9 +15,11 @@ import type { EditorView } from 'prosemirror-view'
 
 const shortcutKey = new PluginKey('editorShortcuts')
 
-// Callback registrado externamente para abrir o FindBar
-let onOpenFind: (() => void) | null = null
-export function setFindOpener(fn: () => void) { onOpenFind = fn }
+let onOpenFind:    (() => void) | null = null
+let onOpenReplace: (() => void) | null = null
+
+export function setFindOpener(fn: () => void)    { onOpenFind    = fn }
+export function setReplaceOpener(fn: () => void) { onOpenReplace = fn }
 
 function isStrikethrough(e: KeyboardEvent): boolean {
   if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return false
@@ -36,10 +36,14 @@ function isFind(e: KeyboardEvent): boolean {
   return e.key.toLowerCase() === 'f'
 }
 
+function isReplace(e: KeyboardEvent): boolean {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return false
+  return e.key.toLowerCase() === 'h'
+}
+
 function toggleStrikethrough(view: EditorView): boolean {
   const { state, dispatch } = view
-  const mark = state.schema.marks['strike_through']
-  if (!mark) return false
+  const mark = state.schema.marks['strike_through']; if (!mark) return false
   const { from, to, empty } = state.selection
   if (empty) {
     const stored = state.storedMarks ?? []
@@ -76,17 +80,10 @@ export function createShortcutPlugin(): Plugin {
     key: shortcutKey,
     props: {
       handleKeyDown(view: EditorView, event: KeyboardEvent): boolean {
-        if (isStrikethrough(event)) {
-          event.preventDefault(); return toggleStrikethrough(view)
-        }
-        if (isCodeFence(event)) {
-          event.preventDefault(); return insertCodeBlock(view)
-        }
-        if (isFind(event)) {
-          event.preventDefault()
-          onOpenFind?.()
-          return true
-        }
+        if (isStrikethrough(event)) { event.preventDefault(); return toggleStrikethrough(view) }
+        if (isCodeFence(event))     { event.preventDefault(); return insertCodeBlock(view) }
+        if (isFind(event))    { event.preventDefault(); onOpenFind?.();    return true }
+        if (isReplace(event)) { event.preventDefault(); onOpenReplace?.(); return true }
         return false
       },
     },
