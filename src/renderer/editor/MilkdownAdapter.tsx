@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: footnote-plugin | plano: 8039a6a6 | 2026-09-18
-// +footnoteSlice registrado no editor
+// [mcp-local harness] feature: emoji-plugin | plano: dfdaec79 | 2026-09-18
+// +emoji: :smile: → 😄 via @milkdown/plugin-emoji
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -16,6 +16,7 @@ import { gfm, insertTableCommand } from '@milkdown/preset-gfm'
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { math } from '@milkdown/plugin-math'
+import { emoji } from '@milkdown/plugin-emoji'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { callCommand, $prose } from '@milkdown/utils'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
@@ -211,6 +212,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         })
       })
       .use(commonmark).use(gfm).use(history).use(listener).use(math)
+      .use(emoji)
       .use(shortcutSlice.current)
       .use(findSlice.current)
       .use(autoPairSlice.current)
