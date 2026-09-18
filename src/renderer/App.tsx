@@ -1,15 +1,16 @@
-// [mcp-local harness] feature: autosave-watch | plano: d73bdc33 | 2026-09-17 15:59:21
-// App.tsx com auto-save (30s), watch externo (banner de recarga), indicador ✓ salvo na status bar
-// App.tsx — completo: auto-save, watch externo, sidebar, export, global search, open quickly
+// [mcp-local harness] feature: fix-shortcuts-v3 | plano: 96857234 | 2026-09-17 21:16:44
+// Fix Alt+Shift+5 aceita Numpad5; Ctrl+Shift+K com toLowerCase; sem logs de debug
+// App.tsx — fix Alt+Shift+5 (Numpad5 + Digit5), Ctrl+Shift+K via IPC direto
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { Sidebar } from './components/Sidebar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
 import { GlobalSearch } from './components/GlobalSearch'
+import { LinkDialog } from './components/LinkDialog'
 import { IPC, NOTIFY } from '@shared/types'
 
-const AUTO_SAVE_INTERVAL = 30_000  // 30 segundos
+const AUTO_SAVE_INTERVAL = 30_000
 
 const WELCOME_MD = `# Bem-vindo ao TypeShuDown
 
@@ -20,10 +21,20 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 - Abra um arquivo com \`Ctrl+O\`
 - Busca rápida com \`Ctrl+P\`
 - Busca em arquivos com \`Ctrl+Shift+F\`
-- Toggle sidebar com \`Ctrl+\\\`
+- Toggle sidebar com \`Ctrl+Shift+L\`
 - Salve com \`Ctrl+S\`
 - Alterne modo código com \`Ctrl+/\`
 - Focus Mode com \`F8\` · Typewriter com \`F9\`
+
+## Formatação
+
+| Ação | Atalho |
+|---|---|
+| **Negrito** | Ctrl+B |
+| *Itálico* | Ctrl+I |
+| ~~Riscado~~ | Alt+Shift+5 |
+| [Link](#) | Ctrl+K |
+| Código | Ctrl+Shift+K |
 
 > Comece a digitar aqui ou abra um arquivo existente.
 `
@@ -45,7 +56,6 @@ function countWords(t: string) { return t.trim() === '' ? 0 : t.trim().split(/\s
 function countChars(t: string) { return t.replace(/\r\n/g, '\n').length }
 function readingTime(w: number) { const m = Math.ceil(w / 200); return m <= 1 ? '< 1 min' : `${m} min` }
 
-// ── StatusBar ────────────────────────────────────────────────────────────
 interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean; autoSaved: boolean }
 function StatusBar({ content, filePath, isDirty, autoSaved }: StatusBarProps): React.JSX.Element {
   const words = countWords(content); const chars = countChars(content); const time = readingTime(words)
@@ -61,7 +71,6 @@ function StatusBar({ content, filePath, isDirty, autoSaved }: StatusBarProps): R
   )
 }
 
-// ── Banner de arquivo modificado externamente ────────────────────────────
 interface ExternalChangeBannerProps { onReload: () => void; onDismiss: () => void }
 function ExternalChangeBanner({ onReload, onDismiss }: ExternalChangeBannerProps): React.JSX.Element {
   return (
@@ -73,7 +82,6 @@ function ExternalChangeBanner({ onReload, onDismiss }: ExternalChangeBannerProps
   )
 }
 
-// ── Export HTML ──────────────────────────────────────────────────────────
 function exportHTML(fileName: string): void {
   const editor = document.querySelector('.ProseMirror')
   if (!editor) return
@@ -85,11 +93,11 @@ body{max-width:800px;margin:40px auto;font-family:Georgia,serif;font-size:16px;l
 h1,h2,h3,h4,h5,h6{font-family:-apple-system,sans-serif;font-weight:600;margin:1.2em 0 0.4em}
 h1{font-size:2em}h2{font-size:1.5em}h3{font-size:1.25em}
 code{font-family:monospace;background:#f3f3f3;padding:.1em .4em;border-radius:3px}
-pre{background:#f3f3f3;padding:1em;overflow-x:auto;border-radius:4px}
-pre code{background:none;padding:0}
+pre{background:#f3f3f3;padding:1em;overflow-x:auto;border-radius:4px}pre code{background:none;padding:0}
 blockquote{border-left:3px solid #e0e0e0;padding-left:1em;color:#6b6b6b;margin:.75em 0}
 table{border-collapse:collapse;width:100%}th,td{border:1px solid #e0e0e0;padding:.5em .75em;text-align:left}
 th{background:#f3f3f3;font-weight:600}a{color:#4a90d9}img{max-width:100%}
+del{text-decoration:line-through;color:#888}
 </style></head><body>${editor.innerHTML}</body></html>`
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url  = URL.createObjectURL(blob)
@@ -97,7 +105,6 @@ th{background:#f3f3f3;font-weight:600}a{color:#4a90d9}img{max-width:100%}
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
 }
 
-// ── App ──────────────────────────────────────────────────────────────────
 export default function App(): React.JSX.Element {
   const [initialContent, setInitialContent]           = useState(WELCOME_MD)
   const [editorKey, setEditorKey]                     = useState(0)
@@ -116,17 +123,17 @@ export default function App(): React.JSX.Element {
   const [currentDirPath, setCurrentDirPath]           = useState<string | null>(null)
   const [autoSaved, setAutoSaved]                     = useState(false)
   const [externalChanged, setExternalChanged]         = useState(false)
+  const [linkDialogVisible, setLinkDialogVisible]     = useState(false)
+  const [linkInitialLabel, setLinkInitialLabel]       = useState('')
 
   const editorContentRef = useRef(WELCOME_MD)
   const filePathRef      = useRef<string | null>(null)
   const isDirtyRef       = useRef(false)
   const editorRef        = useRef<EditorHandle>(null)
 
-  // Mantém refs sincronizados para usar nos timers/listeners sem stale closure
   useEffect(() => { filePathRef.current = filePath }, [filePath])
   useEffect(() => { isDirtyRef.current = isDirty },   [isDirty])
 
-  // ── loadFile ─────────────────────────────────────────────────────────
   const loadFile = useCallback((path: string, content: string) => {
     const fm = extractFrontMatter(content)
     const editorMd = fm ? fm.body : content
@@ -137,7 +144,6 @@ export default function App(): React.JSX.Element {
     setWordCountContent(content); setFrontMatter(fm ? fm.content : null); setOutlineMarkdown(editorMd)
     setCurrentDirPath(path.replace(/[\\/][^\\/]+$/, ''))
     setExternalChanged(false); setAutoSaved(false)
-    // Inicia watch do novo arquivo
     window.api.watchStart(path)
   }, [])
 
@@ -145,27 +151,20 @@ export default function App(): React.JSX.Element {
     const fm = extractFrontMatter(editorContentRef.current)
     const full = fm ? `---\n${fm.content}\n---\n${md}` : md
     editorContentRef.current = full
-    setIsDirty(true); setWordCountContent(full); setOutlineMarkdown(md)
-    setAutoSaved(false)
+    setIsDirty(true); setWordCountContent(full); setOutlineMarkdown(md); setAutoSaved(false)
   }, [])
 
   const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
 
-  // ── Auto-save ─────────────────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(async () => {
       if (!isDirtyRef.current || !filePathRef.current) return
       const r = await window.api.saveFile(filePathRef.current, editorContentRef.current)
-      if (r.success) {
-        setIsDirty(false)
-        setAutoSaved(true)
-        setTimeout(() => setAutoSaved(false), 3000)  // mostra "✓ salvo" por 3s
-      }
+      if (r.success) { setIsDirty(false); setAutoSaved(true); setTimeout(() => setAutoSaved(false), 3000) }
     }, AUTO_SAVE_INTERVAL)
     return () => clearInterval(timer)
   }, [])
 
-  // ── Watch externo ─────────────────────────────────────────────────────
   useEffect(() => {
     window.api.on(NOTIFY.FILE_CHANGED_EXTERNALLY, () => setExternalChanged(true))
     return () => window.api.removeAllListeners(NOTIFY.FILE_CHANGED_EXTERNALLY)
@@ -178,13 +177,24 @@ export default function App(): React.JSX.Element {
     setExternalChanged(false)
   }, [loadFile])
 
-  // ── IPC listeners ─────────────────────────────────────────────────────
   useEffect(() => {
     window.api.on('file:opened', (...args: unknown[]) => {
       const r = args[0] as { success: boolean; path?: string; content?: string }
       if (r.success && r.content !== undefined && r.path) loadFile(r.path, r.content)
     })
     return () => window.api.removeAllListeners('file:opened')
+  }, [loadFile])
+
+  const openLinkDialog = useCallback(() => {
+    const selected = editorRef.current?.getSelectedText() ?? ''
+    setLinkInitialLabel(selected)
+    setLinkDialogVisible(true)
+  }, [])
+
+  const handleLinkConfirm = useCallback((label: string, url: string) => {
+    const md = `[${label}](${url})`
+    editorRef.current?.replaceSelectionWith(md)
+    setLinkDialogVisible(false)
   }, [])
 
   useEffect(() => {
@@ -192,8 +202,11 @@ export default function App(): React.JSX.Element {
     window.api.on('ui:global-search', () => { setGlobalSearchVisible(true); setSidebarOpen(true) })
     window.api.on('ui:export-html',   () => exportHTML(fileName || 'documento'))
     window.api.on('ui:export-pdf',    () => window.print())
-    window.api.on('format:bold',    () => editorRef.current?.toggleBold())
-    window.api.on('format:italic',  () => editorRef.current?.toggleItalic())
+    window.api.on('format:bold',          () => editorRef.current?.toggleBold())
+    window.api.on('format:italic',        () => editorRef.current?.toggleItalic())
+    window.api.on('format:strikethrough', () => editorRef.current?.toggleStrikethrough())
+    window.api.on('format:link',          () => openLinkDialog())
+    window.api.on('format:code-fence',    () => editorRef.current?.insertCodeFence())
     window.api.on('format:heading', (...args: unknown[]) => editorRef.current?.setHeading((args[0] as number) as 0|1|2|3|4|5|6))
     window.api.on('view:toggle-sidebar',    () => setSidebarOpen(v => !v))
     window.api.on('view:toggle-source',     () => setSourceMode(v => !v))
@@ -201,11 +214,11 @@ export default function App(): React.JSX.Element {
     window.api.on('view:toggle-typewriter', () => setTypewriterMode(v => !v))
     return () => {
       ;['ui:open-quickly','ui:global-search','ui:export-html','ui:export-pdf',
-        'format:bold','format:italic','format:heading',
+        'format:bold','format:italic','format:strikethrough','format:link','format:code-fence','format:heading',
         'view:toggle-sidebar','view:toggle-source','view:toggle-focus','view:toggle-typewriter',
       ].forEach(ch => window.api.removeAllListeners(ch))
     }
-  }, [fileName])
+  }, [fileName, openLinkDialog])
 
   const handleSaveAs = useCallback(async () => {
     const r = await window.api.saveFileAs(editorContentRef.current)
@@ -237,16 +250,44 @@ export default function App(): React.JSX.Element {
   }, [handleSave, handleSaveAs, handleNew])
 
   // ── Atalhos ───────────────────────────────────────────────────────────
+  // Diagnóstico revelou:
+  //   Alt+Shift+5 → key='Clear', code='Numpad5'  (teclado numérico no Windows)
+  //   Ctrl+Shift+K → key='K', code='KeyK', ctrl=true, shift=true  (chega correto)
+  //
+  // Para strikethrough: checar code === 'Numpad5' OU code === 'Digit5'
+  // Para code fence: key='K' chega maiúsculo → toLowerCase() resolve
+  //   MAS o autoPairPlugin pode interceptar — movemos o Ctrl+Shift+K para
+  //   handleDOMEvents dentro do MilkdownAdapter (antes do autoPair processar)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    const ctrl = e.ctrlKey || e.metaKey
-    if (!ctrl) return
-    if (e.key === 'b') { e.preventDefault(); editorRef.current?.toggleBold(); return }
-    if (e.key === 'i') { e.preventDefault(); editorRef.current?.toggleItalic(); return }
-    if (e.key >= '1' && e.key <= '6' && !e.shiftKey && !e.altKey) { e.preventDefault(); editorRef.current?.setHeading(Number(e.key) as 1|2|3|4|5|6); return }
-    if (e.key === '0' && e.shiftKey) { e.preventDefault(); editorRef.current?.setHeading(0); return }
-    if (e.key === '/')  { e.preventDefault(); setSourceMode(v => !v); return }
-    if (e.key === '\\') { e.preventDefault(); setSidebarOpen(v => !v); return }
-  }, [])
+    const ctrl  = e.ctrlKey || e.metaKey
+    const shift = e.shiftKey
+    const alt   = e.altKey
+    const key   = e.key.toLowerCase()
+    const code  = e.code  // layout-independente
+
+    if (ctrl && !shift && !alt && key === 'b') { e.preventDefault(); editorRef.current?.toggleBold(); return }
+    if (ctrl && !shift && !alt && key === 'i') { e.preventDefault(); editorRef.current?.toggleItalic(); return }
+
+    // Alt+Shift+5 — suporta tanto Digit5 (teclado principal) quanto Numpad5
+    if (alt && shift && !ctrl && (code === 'Digit5' || code === 'Numpad5')) {
+      e.preventDefault()
+      editorRef.current?.toggleStrikethrough()
+      return
+    }
+
+    // Ctrl+K — link dialog
+    if (ctrl && !shift && !alt && key === 'k') { e.preventDefault(); openLinkDialog(); return }
+
+    // Ctrl+Shift+K — code fence
+    // Nota: chega como key='K' (maiúsculo) no Windows — toLowerCase() resolve
+    if (ctrl && shift && !alt && key === 'k') { e.preventDefault(); editorRef.current?.insertCodeFence(); return }
+
+    if (ctrl && !shift && !alt && key >= '1' && key <= '6') { e.preventDefault(); editorRef.current?.setHeading(Number(key) as 1|2|3|4|5|6); return }
+    if (ctrl && shift && !alt && key === '0') { e.preventDefault(); editorRef.current?.setHeading(0); return }
+
+    if (ctrl && !shift && !alt && key === '/') { e.preventDefault(); setSourceMode(v => !v); return }
+    if (ctrl && shift && !alt && key === 'l')  { e.preventDefault(); setSidebarOpen(v => !v); return }
+  }, [openLinkDialog])
 
   const handleCaptureKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'F8')  { e.preventDefault(); e.stopPropagation(); setFocusMode(v => !v) }
@@ -257,15 +298,19 @@ export default function App(): React.JSX.Element {
       else document.exitFullscreen().catch(() => {})
     }
     if (e.key === 'Escape') {
-      if (quickOpenVisible)         { e.preventDefault(); e.stopPropagation(); setQuickOpenVisible(false) }
+      if (linkDialogVisible)        { e.preventDefault(); e.stopPropagation(); setLinkDialogVisible(false) }
+      else if (quickOpenVisible)    { e.preventDefault(); e.stopPropagation(); setQuickOpenVisible(false) }
       else if (globalSearchVisible) { e.preventDefault(); e.stopPropagation(); setGlobalSearchVisible(false) }
     }
-  }, [quickOpenVisible, globalSearchVisible])
+  }, [linkDialogVisible, quickOpenVisible, globalSearchVisible])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keydown', handleCaptureKeyDown, { capture: true })
-    return () => { window.removeEventListener('keydown', handleKeyDown); document.removeEventListener('keydown', handleCaptureKeyDown, { capture: true }) }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', handleCaptureKeyDown, { capture: true })
+    }
   }, [handleKeyDown, handleCaptureKeyDown])
 
   useEffect(() => { document.title = `${isDirty ? '● ' : ''}${fileName} — TypeShuDown` }, [fileName, isDirty])
@@ -284,9 +329,7 @@ export default function App(): React.JSX.Element {
         )
       )}
       <div className="editor-area">
-        {externalChanged && (
-          <ExternalChangeBanner onReload={handleReloadExternal} onDismiss={() => setExternalChanged(false)} />
-        )}
+        {externalChanged && <ExternalChangeBanner onReload={handleReloadExternal} onDismiss={() => setExternalChanged(false)} />}
         {sourceMode ? (
           <textarea
             className="source-editor"
@@ -303,7 +346,9 @@ export default function App(): React.JSX.Element {
         )}
         <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
       </div>
+
       {quickOpenVisible && <QuickOpen dirPath={currentDirPath} onOpen={loadFile} onClose={() => setQuickOpenVisible(false)} />}
+      {linkDialogVisible && <LinkDialog initialLabel={linkInitialLabel} onConfirm={handleLinkConfirm} onClose={() => setLinkDialogVisible(false)} />}
     </div>
   )
 }

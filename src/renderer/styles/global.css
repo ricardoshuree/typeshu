@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: autosave-watch-css | plano: 3c856a8f | 2026-09-17 16:01:05
-// CSS com status-autosaved (verde fadeIn) e external-change-banner (amarelado com botões)
-// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner
+// [mcp-local harness] feature: link-dialog-css | plano: 4b4ac591 | 2026-09-17 17:46:54
+// CSS completo com estilos do LinkDialog adicionados ao final
+// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner, link dialog
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -107,6 +107,7 @@ html, body, #root {
 .ProseMirror p  { margin: 0.75em 0; white-space: pre-wrap; }
 .ProseMirror a  { color: var(--accent); text-decoration: underline; }
 .ProseMirror strong { font-weight: 700; } .ProseMirror em { font-style: italic; }
+.ProseMirror del { text-decoration: line-through; color: var(--text-muted); }
 .ProseMirror code { font-family: var(--font-mono); font-size: 0.875em; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.1em 0.4em; white-space: nowrap; }
 .ProseMirror pre { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: var(--radius); padding: 1em; overflow-x: auto; margin: 1em 0; white-space: pre; }
 .ProseMirror pre code { background: none; border: none; padding: 0; white-space: pre; display: block; }
@@ -167,40 +168,11 @@ html, body, #root {
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
 /* ── External Change Banner ─────────────────────────────────────────────── */
-.external-change-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: color-mix(in srgb, #e8c97a 15%, var(--bg-sidebar));
-  border-bottom: 1px solid color-mix(in srgb, #e8c97a 40%, transparent);
-  flex-shrink: 0;
-  font-size: 13px;
-  font-family: var(--font-ui);
-}
-
-.external-change-msg {
-  flex: 1;
-  color: var(--text);
-}
-
-.external-change-btn {
-  padding: 4px 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-editor);
-  color: var(--text);
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
+.external-change-banner { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: color-mix(in srgb, #e8c97a 15%, var(--bg-sidebar)); border-bottom: 1px solid color-mix(in srgb, #e8c97a 40%, transparent); flex-shrink: 0; font-size: 13px; font-family: var(--font-ui); }
+.external-change-msg { flex: 1; color: var(--text); }
+.external-change-btn { padding: 4px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-editor); color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap; }
 .external-change-btn:hover { border-color: var(--accent); color: var(--accent); }
-.external-change-btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
+.external-change-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .external-change-btn--primary:hover { opacity: 0.85; color: #fff; }
 
 /* ── Quick Open ────────────────────────────────────────────────────────── */
@@ -252,6 +224,97 @@ html, body, #root {
 .gs-line-num { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); flex-shrink: 0; min-width: 24px; text-align: right; }
 .gs-line-text { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; font-family: var(--font-mono); }
 .gs-match { background: color-mix(in srgb, #e8c97a 30%, transparent); color: #e8c97a; border-radius: 2px; padding: 0 1px; font-weight: 600; }
+
+/* ── Link Dialog ───────────────────────────────────────────────────────── */
+.link-dialog-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1100;
+}
+
+.link-dialog {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+  width: min(400px, 88vw);
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+.link-dialog-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.link-dialog-row {
+  display: flex; flex-direction: column; gap: 5px;
+}
+
+.link-dialog-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.link-dialog-input {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  outline: none;
+  width: 100%;
+}
+.link-dialog-input:focus { border-color: var(--accent); }
+.link-dialog-input::placeholder { color: var(--text-muted); }
+
+.link-dialog-preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+.link-dialog-preview code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+}
+
+.link-dialog-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 2px;
+}
+
+.link-dialog-btn {
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-editor);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.link-dialog-btn:hover { border-color: var(--accent); color: var(--accent); }
+.link-dialog-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.link-dialog-btn--primary:hover { opacity: 0.85; color: #fff; }
 
 /* ── Print / Export PDF ────────────────────────────────────────────────── */
 @media print {

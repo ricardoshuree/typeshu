@@ -1,5 +1,6 @@
-// [mcp-local harness] feature: autosave-watch | plano: d73bdc33 | 2026-09-17 15:58:14
-// Preload com watchStart/watchStop e NOTIFY.FILE_CHANGED_EXTERNALLY na whitelist
+// [mcp-local harness] feature: format-strikethrough-link-codefence-sidebar | plano: ee7b144b | 2026-09-17 17:45:07
+// Preload: adiciona format:strikethrough, format:link, format:code-fence à whitelist
+// Preload: whitelist com strikethrough, link, code-fence
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
 
@@ -14,12 +15,15 @@ const LISTEN_CHANNELS = [
   'ui:export-html',
   'format:bold',
   'format:italic',
+  'format:strikethrough',   // novo
+  'format:link',            // novo
+  'format:code-fence',      // novo
   'format:heading',
   'view:toggle-sidebar',
   'view:toggle-source',
   'view:toggle-focus',
   'view:toggle-typewriter',
-  NOTIFY.FILE_CHANGED_EXTERNALLY,  // arquivo mudou no disco
+  NOTIFY.FILE_CHANGED_EXTERNALLY,
 ] as const
 
 type ListenChannel = typeof LISTEN_CHANNELS[number]

@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: fix-scroll-menu | plano: 35711c5b | 2026-09-17 15:48:02
-// Menu completo: File (com Export), Edit, Format (Bold/Italic/Headings), View (todos os modos) — atalhos documentados
-// Menu completo com todos os atalhos implementados no app
+// [mcp-local harness] feature: format-strikethrough-link-codefence-sidebar | plano: ee7b144b | 2026-09-17 17:44:55
+// Menu: sidebar Ctrl+Shift+L, Format com Strikethrough Alt+Shift+5 e Code Fence Ctrl+Shift+K
+// Menu completo: sidebar Ctrl+Shift+L, Strikethrough, Code Fence, Hyperlink
 import { Menu, BrowserWindow, app, dialog } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { IPC } from '../shared/types'
@@ -79,16 +79,16 @@ export function buildMenu(): void {
     {
       label: 'Edit',
       submenu: [
-        { label: 'Undo',          accelerator: 'CmdOrCtrl+Z',         role: 'undo' },
-        { label: 'Redo',          accelerator: 'CmdOrCtrl+Shift+Z',   role: 'redo' },
+        { label: 'Undo',          accelerator: 'CmdOrCtrl+Z',       role: 'undo' },
+        { label: 'Redo',          accelerator: 'CmdOrCtrl+Shift+Z', role: 'redo' },
         { type: 'separator' },
-        { label: 'Cut',           accelerator: 'CmdOrCtrl+X',         role: 'cut' },
-        { label: 'Copy',          accelerator: 'CmdOrCtrl+C',         role: 'copy' },
-        { label: 'Paste',         accelerator: 'CmdOrCtrl+V',         role: 'paste' },
+        { label: 'Cut',           accelerator: 'CmdOrCtrl+X',       role: 'cut' },
+        { label: 'Copy',          accelerator: 'CmdOrCtrl+C',       role: 'copy' },
+        { label: 'Paste',         accelerator: 'CmdOrCtrl+V',       role: 'paste' },
         { type: 'separator' },
-        { label: 'Select All',    accelerator: 'CmdOrCtrl+A',         role: 'selectAll' },
+        { label: 'Select All',    accelerator: 'CmdOrCtrl+A',       role: 'selectAll' },
         { type: 'separator' },
-        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F',   click: () => getWin()?.webContents.send(RESULT.GLOBAL_SEARCH) },
+        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => getWin()?.webContents.send(RESULT.GLOBAL_SEARCH) },
       ],
     },
 
@@ -96,16 +96,20 @@ export function buildMenu(): void {
     {
       label: 'Format',
       submenu: [
-        { label: 'Bold',          accelerator: 'CmdOrCtrl+B',         click: () => getWin()?.webContents.send('format:bold') },
-        { label: 'Italic',        accelerator: 'CmdOrCtrl+I',         click: () => getWin()?.webContents.send('format:italic') },
+        { label: 'Bold',          accelerator: 'CmdOrCtrl+B',       click: () => getWin()?.webContents.send('format:bold') },
+        { label: 'Italic',        accelerator: 'CmdOrCtrl+I',       click: () => getWin()?.webContents.send('format:italic') },
+        { label: 'Strikethrough', accelerator: 'Alt+Shift+5',       click: () => getWin()?.webContents.send('format:strikethrough') },
         { type: 'separator' },
-        { label: 'Heading 1',     accelerator: 'CmdOrCtrl+1',         click: () => getWin()?.webContents.send('format:heading', 1) },
-        { label: 'Heading 2',     accelerator: 'CmdOrCtrl+2',         click: () => getWin()?.webContents.send('format:heading', 2) },
-        { label: 'Heading 3',     accelerator: 'CmdOrCtrl+3',         click: () => getWin()?.webContents.send('format:heading', 3) },
-        { label: 'Heading 4',     accelerator: 'CmdOrCtrl+4',         click: () => getWin()?.webContents.send('format:heading', 4) },
-        { label: 'Heading 5',     accelerator: 'CmdOrCtrl+5',         click: () => getWin()?.webContents.send('format:heading', 5) },
-        { label: 'Heading 6',     accelerator: 'CmdOrCtrl+6',         click: () => getWin()?.webContents.send('format:heading', 6) },
-        { label: 'Paragraph',     accelerator: 'CmdOrCtrl+Shift+0',   click: () => getWin()?.webContents.send('format:heading', 0) },
+        { label: 'Hyperlink',     accelerator: 'CmdOrCtrl+K',       click: () => getWin()?.webContents.send('format:link') },
+        { label: 'Code Fence',    accelerator: 'CmdOrCtrl+Shift+K', click: () => getWin()?.webContents.send('format:code-fence') },
+        { type: 'separator' },
+        { label: 'Heading 1',     accelerator: 'CmdOrCtrl+1',       click: () => getWin()?.webContents.send('format:heading', 1) },
+        { label: 'Heading 2',     accelerator: 'CmdOrCtrl+2',       click: () => getWin()?.webContents.send('format:heading', 2) },
+        { label: 'Heading 3',     accelerator: 'CmdOrCtrl+3',       click: () => getWin()?.webContents.send('format:heading', 3) },
+        { label: 'Heading 4',     accelerator: 'CmdOrCtrl+4',       click: () => getWin()?.webContents.send('format:heading', 4) },
+        { label: 'Heading 5',     accelerator: 'CmdOrCtrl+5',       click: () => getWin()?.webContents.send('format:heading', 5) },
+        { label: 'Heading 6',     accelerator: 'CmdOrCtrl+6',       click: () => getWin()?.webContents.send('format:heading', 6) },
+        { label: 'Paragraph',     accelerator: 'CmdOrCtrl+Shift+0', click: () => getWin()?.webContents.send('format:heading', 0) },
       ],
     },
 
@@ -113,19 +117,19 @@ export function buildMenu(): void {
     {
       label: 'View',
       submenu: [
-        { label: 'Toggle Sidebar',     accelerator: 'CmdOrCtrl+\\',        click: () => getWin()?.webContents.send('view:toggle-sidebar') },
-        { label: 'Source Code Mode',   accelerator: 'CmdOrCtrl+/',         click: () => getWin()?.webContents.send('view:toggle-source') },
+        { label: 'Toggle Sidebar',   accelerator: 'CmdOrCtrl+Shift+L', click: () => getWin()?.webContents.send('view:toggle-sidebar') },
+        { label: 'Source Code Mode', accelerator: 'CmdOrCtrl+/',       click: () => getWin()?.webContents.send('view:toggle-source') },
         { type: 'separator' },
-        { label: 'Focus Mode',         accelerator: 'F8',                  click: () => getWin()?.webContents.send('view:toggle-focus') },
-        { label: 'Typewriter Mode',    accelerator: 'F9',                  click: () => getWin()?.webContents.send('view:toggle-typewriter') },
-        { label: 'Toggle Fullscreen',  accelerator: 'F11',                 role: 'togglefullscreen' },
+        { label: 'Focus Mode',       accelerator: 'F8',                click: () => getWin()?.webContents.send('view:toggle-focus') },
+        { label: 'Typewriter Mode',  accelerator: 'F9',                click: () => getWin()?.webContents.send('view:toggle-typewriter') },
+        { label: 'Toggle Fullscreen',accelerator: 'F11',               role: 'togglefullscreen' },
         { type: 'separator' },
-        { label: 'Reload',             accelerator: 'CmdOrCtrl+R',         role: 'reload' },
-        { label: 'Toggle DevTools',    accelerator: 'F12',                 role: 'toggleDevTools' },
+        { label: 'Reload',           accelerator: 'CmdOrCtrl+R',       role: 'reload' },
+        { label: 'Toggle DevTools',  accelerator: 'F12',               role: 'toggleDevTools' },
         { type: 'separator' },
-        { label: 'Zoom In',            accelerator: 'CmdOrCtrl+Plus',      role: 'zoomIn' },
-        { label: 'Zoom Out',           accelerator: 'CmdOrCtrl+-',         role: 'zoomOut' },
-        { label: 'Reset Zoom',         accelerator: 'CmdOrCtrl+0',         role: 'resetZoom' },
+        { label: 'Zoom In',          accelerator: 'CmdOrCtrl+Plus',    role: 'zoomIn' },
+        { label: 'Zoom Out',         accelerator: 'CmdOrCtrl+-',       role: 'zoomOut' },
+        { label: 'Reset Zoom',       accelerator: 'CmdOrCtrl+0',       role: 'resetZoom' },
       ],
     },
 
