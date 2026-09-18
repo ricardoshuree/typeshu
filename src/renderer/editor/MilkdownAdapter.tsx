@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: drag-hover-expand-blockquote-toggle | plano: c0fc2e6b | 2026-09-18
-// Bug 2: toggleBlockquote faz unwrap quando cursor já está num blockquote
+// [mcp-local harness] feature: footnote-plugin | plano: 8039a6a6 | 2026-09-18
+// +footnoteSlice registrado no editor
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -28,6 +28,7 @@ import { createFrontMatterPlugin } from './frontMatterPlugin'
 import { createMermaidPlugin }     from './mermaidPlugin'
 import { createShortcutPlugin }    from './shortcutPlugin'
 import { createFindPlugin, findPluginKey } from './findPlugin'
+import { createFootnotePlugin } from './footnotePlugin'
 import { SIDEBAR_DRAG_KEY } from '../components/Sidebar'
 import type { EditorProps } from './EditorAdapter'
 import 'katex/dist/katex.min.css'
@@ -104,7 +105,6 @@ function doInsertCodeFence(ctx: Ctx, lang = '') {
   } catch (e) { console.warn('insertCodeFence error:', e) }
 }
 
-// ── Helpers de node block ─────────────────────────────────────────────────
 function isInNodeType(view: EditorView, nodeTypeName: string): boolean {
   const nodeType = view.state.schema.nodes[nodeTypeName]
   if (!nodeType) return false
@@ -115,7 +115,7 @@ function isInNodeType(view: EditorView, nodeTypeName: string): boolean {
   return false
 }
 
-// ── Drop plugin (C: sidebar → editor) ─────────────────────────────────────
+// ── Drop plugin ───────────────────────────────────────────────────────────
 function relativePath(from: string, to: string): string {
   const norm = (p: string) => p.replace(/\\/g, '/')
   const fromDir = norm(from).replace(/\/[^/]+$/, '')
@@ -186,6 +186,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
   const shortcutSlice    = useRef($prose(() => createShortcutPlugin()))
   const findSlice        = useRef($prose(() => createFindPlugin()))
   const dropSlice        = useRef($prose(() => createDropPlugin(() => currentFileRef.current)))
+  const footnoteSlice    = useRef($prose(() => createFootnotePlugin()))
 
   const { get } = useEditor((root) =>
     Editor.make()
@@ -217,6 +218,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       .use(frontMatterSlice.current)
       .use(mermaidSlice.current)
       .use(dropSlice.current)
+      .use(footnoteSlice.current)
   )
 
   function dispatchAndNotify(view: any, tr: any) {
@@ -248,7 +250,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
     toggleItalic:        () => { const e = get(); if (e) e.action(ctx => toggleMark('emphasis', ctx)) },
     toggleStrikethrough: () => { const e = get(); if (e) e.action(ctx => toggleMark('strike_through', ctx)) },
 
-    // ── Blockquote toggle ─────────────────────────────────────────────────
     toggleBlockquote: () => {
       const e = get(); if (!e) return
       let wasInBlockquote = false
@@ -256,18 +257,11 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         const view = getView(ctx); if (!view) return
         if (!view.hasFocus()) view.focus()
         wasInBlockquote = isInNodeType(view, 'blockquote')
-        if (wasInBlockquote) {
-          // lift: sobe o conteúdo para fora do blockquote
-          lift(view.state, view.dispatch)
-          view.focus()
-        }
+        if (wasInBlockquote) { lift(view.state, view.dispatch); view.focus() }
       })
-      if (!wasInBlockquote) {
-        e.action(callCommand(wrapInBlockquoteCommand.key))
-      }
+      if (!wasInBlockquote) e.action(callCommand(wrapInBlockquoteCommand.key))
     },
 
-    // ── Toggle lista — closure booleana coordena lift XOR wrap ────────────
     toggleBulletList: () => {
       const e = get(); if (!e) return
       let wasInList = false

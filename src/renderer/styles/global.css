@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-flat-mode-css | plano: c6a25a0c | 2026-09-18
-// +.sidebar-btn--active para o toggle de view mode (tree/flat)
+// [mcp-local harness] feature: footnote-plugin | plano: 8039a6a6 | 2026-09-18
+// +estilos de footnote: .footnote-ref, .footnote-def-hidden, .footnote-section
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -426,3 +426,62 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .ftb-heading-item--h5 .ftb-heading-label { font-size: 12px; color: var(--text-muted); }
 .ftb-heading-item--h6 .ftb-heading-label { font-size: 11px; color: var(--text-muted); }
 .ftb-heading-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Footnotes ─────────────────────────────────────────────────────────── */
+/* Oculta o parágrafo de definição [^id]: texto — o rodapé substitui */
+.ProseMirror .footnote-def-hidden { display: none; }
+
+/* Referência inline: o texto [^id] fica invisível, o widget <sup> aparece no lugar */
+.ProseMirror .footnote-ref { font-size: 0; line-height: 0; color: transparent; }
+
+/* Número sobrescrito da referência */
+.footnote-ref-num { display: inline; }
+.footnote-ref-num a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.75em;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  vertical-align: super;
+  line-height: 0;
+  cursor: pointer;
+  padding: 0 1px;
+}
+.footnote-ref-num a:hover { text-decoration: underline; }
+
+/* Seção de rodapé */
+.footnote-section {
+  max-width: var(--editor-width);
+  margin: 2em auto 0;
+  padding-top: 0;
+}
+.footnote-hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin-bottom: 1em;
+  width: 40%;
+  margin-left: 0;
+}
+.footnote-list {
+  list-style: decimal;
+  padding-left: 1.5em;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.footnote-item {
+  font-size: 0.875em;
+  color: var(--text-muted);
+  font-family: var(--font-editor);
+  line-height: 1.5;
+}
+.footnote-text { margin-right: 6px; }
+.footnote-backref {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9em;
+  opacity: 0.7;
+  cursor: pointer;
+}
+.footnote-backref:hover { opacity: 1; }
