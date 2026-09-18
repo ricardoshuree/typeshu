@@ -1,7 +1,7 @@
 {
-  "name": "typeshudown",
+  "name": "typeshu",
   "version": "0.1.0",
-  "description": "TypeShuDown — Editor Markdown WYSIWYM desktop",
+  "description": "TypeShu — Editor Markdown WYSIWYM desktop",
   "main": "dist/main/index.js",
   "author": "Ricardo Shure",
   "license": "UNLICENSED",
@@ -42,27 +42,19 @@
     "vite": "^5.4.8"
   },
   "build": {
-    "appId": "com.ricardoshure.typeshudown",
-    "productName": "TypeShuDown",
+    "appId": "com.ricardoshure.typeshu",
+    "productName": "TypeShu",
     "directories": {
       "output": "release"
     },
     "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ]
+      "target": ["nsis", "portable"]
     },
     "mac": {
-      "target": [
-        "dmg"
-      ]
+      "target": ["dmg"]
     },
     "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ]
+      "target": ["AppImage", "deb"]
     }
   }
 }

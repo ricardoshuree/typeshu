@@ -1,10 +1,10 @@
-# TypeShuDown
+# TypeShu
 
 > Editor Markdown WYSIWYM desktop — clone turbinado do Typora.
 
 Interface limpa onde o que você digita é renderizado instantaneamente. Sem modo de preview separado: você escreve e vê o resultado ao mesmo tempo.
 
-![TypeShuDown](https://img.shields.io/badge/Electron-32.x-blue) ![TypeShuDown](https://img.shields.io/badge/Milkdown-v7-green) ![TypeShuDown](https://img.shields.io/badge/TypeScript-5.x-blue)
+![TypeShu](https://img.shields.io/badge/Electron-32.x-blue) ![TypeShu](https://img.shields.io/badge/Milkdown-v7-green) ![TypeShu](https://img.shields.io/badge/TypeScript-5.x-blue)
 
 ---
 
