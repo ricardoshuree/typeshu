@@ -1,13 +1,18 @@
-// [mcp-local harness] feature: replace-in-document | plano: 25f77ea9 | 2026-09-17 22:11:13
-// Adiciona replaceOne e replaceAll ao EditorHandle; usa TextSelection importado direto
-// MilkdownAdapter — com replaceOne e replaceAll
+// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
+// EditorHandle: +toggleBlockquote, +toggleBulletList, +toggleOrderedList, +insertTable
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
   editorViewCtx, type Ctx,
 } from '@milkdown/core'
-import { commonmark, wrapInHeadingCommand } from '@milkdown/preset-commonmark'
-import { gfm } from '@milkdown/preset-gfm'
+import {
+  commonmark,
+  wrapInHeadingCommand,
+  wrapInBlockquoteCommand,
+  wrapInBulletListCommand,
+  wrapInOrderedListCommand,
+} from '@milkdown/preset-commonmark'
+import { gfm, insertTableCommand } from '@milkdown/preset-gfm'
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { math } from '@milkdown/plugin-math'
@@ -24,21 +29,25 @@ import type { EditorProps } from './EditorAdapter'
 import 'katex/dist/katex.min.css'
 
 export interface EditorHandle {
-  toggleBold:          () => void
-  toggleItalic:        () => void
-  toggleStrikethrough: () => void
-  setHeading:          (level: 0 | 1 | 2 | 3 | 4 | 5 | 6) => void
-  insertCodeFence:     (lang?: string) => void
-  getSelectedText:     () => string
-  replaceSelectionWith:(text: string) => void
-  find:                (query: string, caseSensitive?: boolean) => void
-  findNext:            () => void
-  findPrev:            () => void
-  clearFind:           () => void
-  getFindState:        () => { matches: number; current: number }
-  scrollToCurrentMatch:() => void
-  replaceOne:          (replacement: string) => void
-  replaceAll:          (replacement: string) => void
+  toggleBold:           () => void
+  toggleItalic:         () => void
+  toggleStrikethrough:  () => void
+  toggleBlockquote:     () => void
+  toggleBulletList:     () => void
+  toggleOrderedList:    () => void
+  setHeading:           (level: 0 | 1 | 2 | 3 | 4 | 5 | 6) => void
+  insertCodeFence:      (lang?: string) => void
+  insertTable:          () => void
+  getSelectedText:      () => string
+  replaceSelectionWith: (text: string) => void
+  find:                 (query: string, caseSensitive?: boolean) => void
+  findNext:             () => void
+  findPrev:             () => void
+  clearFind:            () => void
+  getFindState:         () => { matches: number; current: number }
+  scrollToCurrentMatch: () => void
+  replaceOne:           (replacement: string) => void
+  replaceAll:           (replacement: string) => void
 }
 
 interface MilkdownEditorProps extends EditorProps {
@@ -147,6 +156,10 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
     toggleBold:          () => { const e = get(); if (e) e.action(ctx => toggleMark('strong', ctx)) },
     toggleItalic:        () => { const e = get(); if (e) e.action(ctx => toggleMark('em', ctx)) },
     toggleStrikethrough: () => { const e = get(); if (e) e.action(ctx => toggleMark('strike_through', ctx)) },
+    toggleBlockquote:    () => { const e = get(); if (e) e.action(callCommand(wrapInBlockquoteCommand.key)) },
+    toggleBulletList:    () => { const e = get(); if (e) e.action(callCommand(wrapInBulletListCommand.key)) },
+    toggleOrderedList:   () => { const e = get(); if (e) e.action(callCommand(wrapInOrderedListCommand.key)) },
+    insertTable:         () => { const e = get(); if (e) e.action(callCommand(insertTableCommand.key)) },
     setHeading: (level: 0|1|2|3|4|5|6) => { const e = get(); if (e) e.action(callCommand(wrapInHeadingCommand.key, level)) },
     insertCodeFence: (lang = '') => { const e = get(); if (e) e.action(ctx => doInsertCodeFence(ctx, lang)) },
 
@@ -227,7 +240,6 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       })
     },
 
-    // ── Replace ────────────────────────────────────────────────────────
     replaceOne: (replacement: string) => {
       const editor = get(); if (!editor) return
       editor.action((ctx) => {
@@ -235,13 +247,10 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         const s = findPluginKey.getState(view.state)
         if (!s || s.current < 0 || !s.matches.length) return
         const match = s.matches[s.current]
-        // Substitui o match atual e re-executa a busca para atualizar matches
         const tr = view.state.tr
           .insertText(replacement, match.from, match.to)
-          // Após substituir, re-busca para atualizar decorations
           .setMeta(findPluginKey, { type: 'find', query: s.query, caseSensitive: s.caseSensitive })
         view.dispatch(tr)
-        // Avança para o próximo match
         const s2 = findPluginKey.getState(view.state)
         if (s2 && s2.matches.length > 0) {
           dispatchAndNotify(view, view.state.tr.setMeta(findPluginKey, { type: 'next' }))
@@ -258,13 +267,9 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
         const view = getView(ctx); if (!view) return
         const s = findPluginKey.getState(view.state)
         if (!s || !s.matches.length) return
-        // Aplica todas as substituições de trás para frente (preserva posições)
         let tr = view.state.tr
         const matches = [...s.matches].reverse()
-        for (const match of matches) {
-          tr = tr.insertText(replacement, match.from, match.to)
-        }
-        // Limpa o find após substituir tudo
+        for (const match of matches) tr = tr.insertText(replacement, match.from, match.to)
         tr = tr.setMeta(findPluginKey, { type: 'clear' })
         view.dispatch(tr)
         onFindStateRef.current?.(0, -1)

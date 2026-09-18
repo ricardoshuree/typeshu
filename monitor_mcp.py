@@ -1,7 +1,5 @@
-# [mcp-local harness] feature: monitor-palette | plano: 983a0d00 | 2026-09-17 22:50:49
-# Paleta final: verde/amarelo/laranja em todos os lugares — sparkline, barras, ms, legendas
-# [mcp-local harness] feature: monitor-palette | plano: 983a0d00 | 2026-09-17 22:49
-# Paleta: verde/amarelo/laranja (era verde/laranja/vermelho)
+# [mcp-local harness] feature: monitor-fstring-fix | plano: 152e10f8 | 2026-09-18 05:41
+# Fix SyntaxError: backslash em f-string (Python < 3.12) — pre-computa variaveis
 """
 monitor_mcp.py - TypeShu MCP Monitor
 Uso:
@@ -66,16 +64,22 @@ TELEM_DB    = ROOT / "mcp-local" / "monitor" / "tool_calls.db"
 
 # ── Paleta RGB direto ─────────────────────────────────────────────────────────
 _R   = "\033[0m"
-_G   = "\x1b[38;2;82;255;82m"      # verde    — rápido / menor
-_YL  = "\x1b[38;2;255;224;0m"      # amarelo  — normal / médio
+_G   = "\x1b[38;2;82;255;82m"      # verde    — rapido / menor
+_YL  = "\x1b[38;2;255;224;0m"      # amarelo  — normal / medio
 _AM  = "\x1b[38;2;255;140;0m"      # laranja  — lento  / maior
 _RD  = "\x1b[38;2;220;60;60m"      # vermelho — erro / offline
 _DIM = "\x1b[2m"
 _BD  = "\x1b[1m"
 _GR  = "\x1b[38;2;100;100;100m"    # cinza    — vazio / dim
-_CY  = "\x1b[38;2;40;180;255m"     # ciano    — genérico
+_CY  = "\x1b[38;2;40;180;255m"     # ciano    — generico
 _BL  = "\x1b[38;2;100;160;255m"    # azul     — feature name
-_PU  = "\x1b[38;2;180;140;255m"    # roxo     — título
+_PU  = "\x1b[38;2;180;140;255m"    # roxo     — titulo
+
+# Caracteres Unicode pre-definidos (evita backslash em f-string, Python < 3.12)
+_BLK  = "\u2588"   # bloco cheio
+_SHAD = "\u2591"   # bloco vazio/sombra
+_DASH = "\u2500"   # traco horizontal
+_BAR7 = "\u2587"   # bloco 7/8 (para legenda)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _PING_INTERVAL = 3.0
@@ -206,7 +210,7 @@ def _hist(history, width):
     items = list(history)[-width:]
     valid = [v for v in items if v is not None]
     if not valid:
-        return _GR + ("\u2500" * width) + _R
+        return _GR + (_DASH * width) + _R
 
     mn  = min(valid)
     mx  = max(valid)
@@ -215,7 +219,7 @@ def _hist(history, width):
     out = []
     for v in items:
         if v is None:
-            out.append(f"{_RD}\u2500{_R}")
+            out.append(f"{_RD}{_DASH}{_R}")
         else:
             norm = (v - mn) / rng
             idx  = max(1, min(8, int(norm * 7) + 1))
@@ -224,7 +228,7 @@ def _hist(history, width):
     return "".join(out)
 
 
-def _dur_bar(dur_ms: float, max_ms: float, width: int = _BAR_W) -> str:
+def _dur_bar(dur_ms, max_ms, width=_BAR_W):
     """Barra de duracao com cor ABSOLUTA.
     < 50ms = verde, < 200ms = amarelo, >= 200ms = laranja.
     """
@@ -233,11 +237,14 @@ def _dur_bar(dur_ms: float, max_ms: float, width: int = _BAR_W) -> str:
     ratio  = min(dur_ms / max_ms, 1.0)
     filled = max(1, int(ratio * width))
     empty  = width - filled
-    c = _G if dur_ms < 50 else (_YL if dur_ms < 200 else _AM)
-    return f"{c}{'\u2588' * filled}{_R}{_GR}{'\u2591' * empty}{_R}"
+    c      = _G if dur_ms < 50 else (_YL if dur_ms < 200 else _AM)
+    # Pre-computa strings para evitar backslash em f-string (Python < 3.12)
+    filled_str = _BLK * filled
+    empty_str  = _SHAD * empty
+    return f"{c}{filled_str}{_R}{_GR}{empty_str}{_R}"
 
 
-def _read_telem(n: int = _ROWS * 2) -> list[dict]:
+def _read_telem(n=_ROWS * 2):
     if not TELEM_DB.exists():
         return []
     try:
@@ -252,7 +259,7 @@ def _read_telem(n: int = _ROWS * 2) -> list[dict]:
         return []
 
 
-def _read_audit(n: int = _ROWS * 3) -> list[dict]:
+def _read_audit(n=_ROWS * 3):
     if not AUDIT_FILE.exists():
         return []
     try:
@@ -271,7 +278,7 @@ def _read_audit(n: int = _ROWS * 3) -> list[dict]:
         return []
 
 
-def _audit_ts_float(e: dict) -> float:
+def _audit_ts_float(e):
     raw = str(e.get("ts") or e.get("timestamp") or e.get("created_at") or "0")
     try:
         return datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
@@ -282,7 +289,7 @@ def _audit_ts_float(e: dict) -> float:
             return 0.0
 
 
-def _unified_rows(n: int = _ROWS) -> list[dict]:
+def _unified_rows(n=_ROWS):
     telem = _read_telem(n * 2)
     audit = _read_audit(n * 3)
 
@@ -332,19 +339,19 @@ def _unified_rows(n: int = _ROWS) -> list[dict]:
     return rows
 
 
-def _short_path(path: str, max_w: int = _PATH_W) -> str:
+def _short_path(path, max_w=_PATH_W):
     p = path.replace("\\", "/")
     if len(p) > max_w:
         p = "..." + p[-(max_w - 3):]
     return p
 
 
-def _file_icon(path: str) -> str:
+def _file_icon(path):
     ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
     return _EXT_ICON.get(ext, "  ")
 
 
-def _render_calls(rows: list[dict]) -> list[str]:
+def _render_calls(rows):
     if not rows:
         return [f"  {_DIM}(nenhuma chamada registrada ainda){_R}"]
 
@@ -390,14 +397,14 @@ def _legend_calls():
         f"{_R}{_DIM}  {'.' * (_LINE_W - 4)}{_R}\n"
         f"  {_DIM}tool calls: banco {db_st}  "
         f"ok=sucesso  er=erro  "
-        f"{_G}\u2588{_R}{_DIM}=rapido(<50ms)  "
-        f"{_YL}\u2588{_R}{_DIM}=normal(<200ms)  "
-        f"{_AM}\u2588{_R}{_DIM}=lento(>=200ms)  "
-        f"{_GR}\u2591{_R}{_GR}=vazio{_R}  audit: {jl_st}"
+        f"{_G}{_BLK}{_R}{_DIM}=rapido(<50ms)  "
+        f"{_YL}{_BLK}{_R}{_DIM}=normal(<200ms)  "
+        f"{_AM}{_BLK}{_R}{_DIM}=lento(>=200ms)  "
+        f"{_GR}{_SHAD}{_R}{_GR}=vazio{_R}  audit: {jl_st}"
     )
 
 
-def _mcp_block(s: MCPStatus) -> list[str]:
+def _mcp_block(s):
     dot = f"{_G}[ON]{_R}" if s.alive else f"{_RD}[OFF]{_R}"
     lc  = _G if s.alive else _RD
     h   = _hist(s.history, _HIST_W)
@@ -405,7 +412,7 @@ def _mcp_block(s: MCPStatus) -> list[str]:
 
     l1 = f"  {dot} {_PU}{_BD}MCP-TYPESHURELEE{_R}  {h}{dup}"
     l2 = (
-        f"       {_DIM}{'-'*16}{_R}  "
+        f"       {_DIM}{'-' * 16}{_R}  "
         f"{lc}{s.lat_str():>8}{_R}  "
         f"{_DIM}up {s.uptime_str():<10}{_R}  "
         f"{_GR}{s.pid_str()}{_R}"
@@ -413,13 +420,13 @@ def _mcp_block(s: MCPStatus) -> list[str]:
     return [l1, l2]
 
 
-def _legend_ping() -> list[str]:
+def _legend_ping():
     return [
         f"  {_DIM}ping: cada bloco = {_PING_INTERVAL:.0f}s  "
-        f"{_G}\u2587{_R}{_DIM}=menor  "
-        f"{_YL}\u2587{_R}{_DIM}=medio  "
-        f"{_AM}\u2587{_R}{_DIM}=maior do historico  "
-        f"{_RD}\u2500{_R}{_DIM}=offline{_R}",
+        f"{_G}{_BAR7}{_R}{_DIM}=menor  "
+        f"{_YL}{_BAR7}{_R}{_DIM}=medio  "
+        f"{_AM}{_BAR7}{_R}{_DIM}=maior do historico  "
+        f"{_RD}{_DASH}{_R}{_DIM}=offline{_R}",
         f"  {_AM}!! N instancias{_R}{_DIM} = multiplos processos server.py rodando "
         f"(reinicie o MCP){_R}",
     ]
@@ -434,7 +441,7 @@ def _header():
     return f"  {_PU}{_BD}TypeShu - MCP Monitor{_R}  {_DIM}{now}{_R}"
 
 
-def _build(s: MCPStatus) -> list[str]:
+def _build(s):
     rows  = _unified_rows(_ROWS)
     lines = []
     lines.append(_sep("="))
@@ -457,7 +464,7 @@ def _build(s: MCPStatus) -> list[str]:
     return lines
 
 
-def _render_loop(s: MCPStatus):
+def _render_loop(s):
     while True:
         panel = _build(s)
         os.system("cls" if sys.platform == "win32" else "clear")

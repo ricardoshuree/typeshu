@@ -1,6 +1,5 @@
-// [mcp-local harness] feature: preferences-panel | plano: 88f6fdf3 | 2026-09-17 22:19:54
-// Preload: adiciona ui:preferences à whitelist
-// Preload: whitelist completa incluindo ui:preferences
+// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
+// +getRecent, +addRecent; +format:blockquote/bullet-list/ordered-list/table; +NOTIFY.RECENT_CHANGED
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
 
@@ -20,11 +19,17 @@ const LISTEN_CHANNELS = [
   'format:link',
   'format:code-fence',
   'format:heading',
+  'format:blockquote',
+  'format:bullet-list',
+  'format:ordered-list',
+  'format:table',
   'view:toggle-sidebar',
   'view:toggle-source',
   'view:toggle-focus',
   'view:toggle-typewriter',
+  'recent:open',
   NOTIFY.FILE_CHANGED_EXTERNALLY,
+  NOTIFY.RECENT_CHANGED,
 ] as const
 
 type ListenChannel = typeof LISTEN_CHANNELS[number]
@@ -45,6 +50,8 @@ contextBridge.exposeInMainWorld('api', {
   newFile:     (dirPath: string, fileName: string) => ipcRenderer.invoke(IPC.FILE_NEW_IN_DIR, dirPath, fileName),
   renameFile:  (oldPath: string, newName: string)  => ipcRenderer.invoke(IPC.FILE_RENAME, oldPath, newName),
   deleteFile:  (filePath: string)                  => ipcRenderer.invoke(IPC.FILE_DELETE, filePath),
+  getRecent:   () => ipcRenderer.invoke(IPC.RECENT_GET),
+  addRecent:   (filePath: string) => ipcRenderer.invoke(IPC.RECENT_ADD, filePath),
 
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     if (LISTEN_CHANNELS.includes(channel as ListenChannel)) {

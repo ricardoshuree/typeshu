@@ -28,3 +28,4 @@ Lista priorizada (próximo passo imediato primeiro) do que falta fazer.
 Perguntas em aberto que só eu posso responder antes de continuar.
 
 Devolva tudo dentro de uma única caixa de código (markdown), para eu copiar e colar integralmente no próximo chat.
+inicie a devolutiva com a frase: "Leia os outros chats deste projeto e veja as instruções da sessão que iremos continuar abaixo:"

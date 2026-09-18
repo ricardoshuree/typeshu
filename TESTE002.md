@@ -2,10 +2,11 @@
 title: Teste Mermaid e KaTeX
 author: Ricardo
 ---
+> # Teste: Mermaid e KaTeX
 
-# Teste: Mermaid e KaTeX
+## {Diagrama Mermaid}
 
-## Diagrama Mermaid
+<br />
 
 ```mermaid
 graph TD
@@ -58,7 +59,5 @@ ax + by \\
 cx + dy
 \end{pmatrix}
 $$
-
-
 
 teste tail

@@ -1,21 +1,22 @@
-# [mcp-local harness] feature: fix-start-paths | plano: 4c37387f | 2026-09-17 10:59:39
-# Corrigir path do Claude Desktop (Microsoft Store) e detecção do npm pelo path do Node
+# [mcp-local harness] feature: start-no-wait | plano: manual | 2026-09-18
+# Remove proc.wait(): MCP roda desanexado, terminal liberado imediatamente
 """
-start.py — TypeMarkLee Environment Starter
+start.py — TypeShu Environment Starter
 ==========================================
 Orquestra a inicialização completa do ambiente de desenvolvimento:
 
   1. Verifica Python, Node.js, npm e uv
-  2. Instala dependências do MCP (uv sync em mcp-local/)
-  3. Instala dependências do app (npm install)
-  4. Verifica se o servidor MCP está registrado no Claude Desktop
-  5. Inicia o servidor MCP em background (via uv run)
-  6. Exibe instruções para iniciar o monitor e o app
+  2. Verifica/instala psutil (necessário para monitor_mcp.py)
+  3. Instala dependências do MCP (uv sync em mcp-local/)
+  4. Instala dependências do app (npm install)
+  5. Verifica se o servidor MCP está registrado no Claude Desktop
+  6. Inicia o servidor MCP em background (desanexado — não trava o terminal)
+  7. Exibe instruções para iniciar o monitor e o app
 
 Uso:
-  python start.py          → inicialização completa
+  python start.py          → inicialização completa, terminal livre após
   python start.py --check  → apenas verifica o ambiente, sem subir nada
-  python start.py --mcp    → só sobe o servidor MCP
+  python start.py --mcp    → só sobe o servidor MCP (background)
 """
 from __future__ import annotations
 
@@ -65,28 +66,20 @@ def hdr(msg: str): print(f"\n{BD}{msg}{R}")
 
 # ── Paths do Claude Desktop ──────────────────────────────────────────────────────
 def _claude_config_paths() -> list[Path]:
-    """
-    Retorna os candidatos de path para o claude_desktop_config.json.
-    Suporta instalação via Microsoft Store (LocalCache) e instalação direta.
-    """
     paths = []
     if IS_WIN:
-        local = os.environ.get("LOCALAPPDATA", "")
-        appdata = os.environ.get("APPDATA", "")
+        local    = os.environ.get("LOCALAPPDATA", "")
+        appdata  = os.environ.get("APPDATA", "")
         username = os.environ.get("USERNAME", "")
 
-        # Microsoft Store — path real confirmado na máquina do usuário
-        # C:\Users\<user>\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\
         store_local = Path(local) / "Packages"
         if store_local.exists():
             for pkg in store_local.glob("Claude_*"):
                 candidate = pkg / "LocalCache" / "Roaming" / "Claude" / "claude_desktop_config.json"
                 paths.append(candidate)
 
-        # Instalação direta (msi/exe)
         paths.append(Path(appdata) / "Claude" / "claude_desktop_config.json")
 
-        # Fallback com path literal conhecido
         if username:
             paths.append(
                 Path(f"C:/Users/{username}/AppData/Local/Packages/Claude_pzs8sxrjxfjjc/LocalCache/Roaming/Claude/claude_desktop_config.json")
@@ -129,16 +122,8 @@ def check_node() -> bool:
 
 
 def check_npm() -> bool:
-    """
-    Tenta encontrar o npm de três formas:
-      1. shutil.which("npm")  — PATH normal
-      2. npm.cmd no Windows   — instaladores que adicionam só o .cmd
-      3. Mesmo diretório do node — alguns instaladores colocam npm junto
-    """
-    # Tentativa 1: PATH direto
     npm = shutil.which("npm") or shutil.which("npm.cmd")
 
-    # Tentativa 2: mesmo diretório do node
     if not npm:
         node = shutil.which("node")
         if node:
@@ -150,7 +135,7 @@ def check_npm() -> bool:
                     break
 
     if not npm:
-        warn("npm não encontrado no PATH — Node.js instalado mas npm ausente ou não no PATH")
+        warn("npm não encontrado no PATH")
         info("Adicione a pasta do Node ao PATH do sistema e reinicie o terminal")
         return False
 
@@ -183,8 +168,33 @@ def check_uv() -> bool:
         return False
 
 
+def check_psutil() -> bool:
+    """Verifica se psutil está disponível; instala automaticamente se não estiver.
+    Necessário para monitor_mcp.py monitorar o processo do servidor MCP.
+    """
+    try:
+        import psutil  # noqa: F401
+        import importlib.metadata
+        version = importlib.metadata.version("psutil")
+        ok(f"psutil {version}")
+        return True
+    except ImportError:
+        warn("psutil não encontrado — instalando via pip...")
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "psutil", "-q"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            ok("psutil instalado")
+            return True
+        except Exception as e:
+            err(f"Falha ao instalar psutil: {e}")
+            info("Instale manualmente: pip install psutil")
+            return False
+
+
 def check_claude_desktop() -> bool:
-    """Verifica se o MCP está registrado no claude_desktop_config.json."""
     for cfg_path in _claude_config_paths():
         if cfg_path.exists():
             try:
@@ -202,7 +212,6 @@ def check_claude_desktop() -> bool:
                 warn(f"Erro ao ler {cfg_path}: {e}")
 
     warn("claude_desktop_config.json não encontrado em nenhum path conhecido")
-    info("Paths verificados:")
     for p in _claude_config_paths():
         print(f"     {DIM}{p}{R}")
     _print_mcp_config_hint()
@@ -238,7 +247,7 @@ def install_mcp_deps() -> bool:
 def install_npm_deps() -> bool:
     pkg_json = ROOT / "package.json"
     if not pkg_json.exists():
-        warn("package.json não encontrado — npm install pulado (app ainda não scaffolado)")
+        warn("package.json não encontrado — npm install pulado")
         return True
     hdr("Instalando dependências do app (npm install)...")
     npm = shutil.which("npm") or shutil.which("npm.cmd")
@@ -252,7 +261,7 @@ def install_npm_deps() -> bool:
                     npm = str(p)
                     break
     if not npm:
-        err("npm não encontrado — não foi possível instalar dependências do app")
+        err("npm não encontrado")
         return False
     try:
         subprocess.check_call([npm, "install"], cwd=str(ROOT), shell=IS_WIN)
@@ -263,53 +272,71 @@ def install_npm_deps() -> bool:
         return False
 
 
-# ── Iniciar MCP ──────────────────────────────────────────────────────────────────
+# ── Iniciar MCP (desanexado — não bloqueia o terminal) ───────────────────────────
 
-def start_mcp() -> subprocess.Popen | None:
-    hdr("Iniciando servidor MCP...")
+def start_mcp() -> bool:
+    hdr("Iniciando servidor MCP (background)...")
     try:
         uv = shutil.which("uv") or "uv"
-        proc = subprocess.Popen(
-            [uv, "run", str(MCP_SERVER)],
-            cwd=str(MCP_DIR),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+
+        if IS_WIN:
+            # DETACHED_PROCESS: processo filho totalmente independente do terminal pai
+            DETACHED = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            proc = subprocess.Popen(
+                [uv, "run", str(MCP_SERVER)],
+                cwd=str(MCP_DIR),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                creationflags=DETACHED | CREATE_NEW_PROCESS_GROUP,
+            )
+        else:
+            proc = subprocess.Popen(
+                [uv, "run", str(MCP_SERVER)],
+                cwd=str(MCP_DIR),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,   # equivalente ao nohup no Unix
+            )
+
         time.sleep(1.5)
         if proc.poll() is None:
-            ok(f"Servidor MCP iniciado (PID {proc.pid})")
-            return proc
+            ok(f"Servidor MCP iniciado em background (PID {proc.pid})")
+            return True
         err("Servidor MCP encerrou imediatamente — verifique mcp-local/server.py")
-        return None
+        return False
     except Exception as e:
         err(f"Falha ao iniciar MCP: {e}")
-        return None
+        return False
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="TypeMarkLee — inicializador de ambiente")
+    parser = argparse.ArgumentParser(description="TypeShu — inicializador de ambiente")
     parser.add_argument("--check", action="store_true", help="Apenas verifica o ambiente")
-    parser.add_argument("--mcp",   action="store_true", help="Só inicia o servidor MCP")
+    parser.add_argument("--mcp",   action="store_true", help="Só sobe o servidor MCP")
     args = parser.parse_args()
 
     print(f"\n{BD}{'─' * 55}{R}")
-    print(f"{BD}  TypeMarkLee — Inicializador de Ambiente{R}")
+    print(f"{BD}  TypeShu — Inicializador de Ambiente{R}")
     print(f"{BD}{'─' * 55}{R}")
 
     hdr("Verificando dependências do sistema...")
-    py_ok   = check_python()
-    node_ok = check_node()
-    npm_ok  = check_npm()
-    uv_ok   = check_uv()
+    py_ok     = check_python()
+    node_ok   = check_node()
+    npm_ok    = check_npm()
+    uv_ok     = check_uv()
+    psutil_ok = check_psutil()
 
     hdr("Verificando registro no Claude Desktop...")
     claude_ok = check_claude_desktop()
 
     if args.check:
         print()
-        all_ok = py_ok and node_ok and npm_ok and uv_ok and claude_ok
+        all_ok = py_ok and node_ok and npm_ok and uv_ok and psutil_ok and claude_ok
         if all_ok:
             ok("Ambiente 100% OK — pronto para desenvolver!")
         else:
@@ -321,39 +348,24 @@ def main():
         sys.exit(1)
 
     if args.mcp:
-        proc = start_mcp()
-        if proc:
-            print(f"\n{DIM}Servidor MCP rodando. Ctrl+C para encerrar.{R}")
-            try:
-                proc.wait()
-            except KeyboardInterrupt:
-                proc.terminate()
+        start_mcp()
         return
 
     # Fluxo completo
     install_mcp_deps()
     install_npm_deps()
-    proc = start_mcp()
+    mcp_ok = start_mcp()
 
     print(f"\n{BD}{'─' * 55}{R}")
     print(f"{BD}  Ambiente pronto!{R}")
     print(f"{BD}{'─' * 55}{R}")
     if not claude_ok:
         warn("Registre o MCP no Claude Desktop (instruções acima) e reinicie o app")
-    info("Para monitorar o MCP:  python monitor_mcp.py")
-    if (ROOT / "package.json").exists():
-        info("Para rodar o app:      npm run dev")
-    else:
-        info("Próximo passo: scaffoldar o app (npm init + Electron/Vite)")
+    if not mcp_ok:
+        warn("Servidor MCP não subiu — verifique mcp-local/server.py")
+    info("Monitor:  python monitor_mcp.py --terminal")
+    info("App:      npm run dev")
     print()
-
-    if proc:
-        print(f"{DIM}Servidor MCP rodando (PID {proc.pid}). Ctrl+C para encerrar.{R}\n")
-        try:
-            proc.wait()
-        except KeyboardInterrupt:
-            print(f"\n{AM}Encerrando servidor MCP...{R}")
-            proc.terminate()
 
 
 if __name__ == "__main__":

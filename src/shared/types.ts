@@ -1,6 +1,5 @@
-// [mcp-local harness] feature: preferences-panel | plano: 88f6fdf3 | 2026-09-17 22:18:41
-// UserPreferences com mdSubscript, mdSuperscript, mdHighlight e fontFamily simplificado
-// src/shared/types.ts — tipos compartilhados entre main e renderer
+// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
+// +mtime em FileEntry, +RecentFile, +IPC RECENT_GET/ADD, +NOTIFY.RECENT_CHANGED
 
 export interface OpenFile {
   path: string; name: string; content: string; isDirty: boolean
@@ -11,7 +10,13 @@ export interface FileResult {
 }
 
 export interface FileEntry {
-  name: string; path: string; isDirectory: boolean; children?: FileEntry[]
+  name: string; path: string; isDirectory: boolean
+  mtime?: number          // epoch ms — para ordenação por data
+  children?: FileEntry[]
+}
+
+export interface RecentFile {
+  path: string; name: string
 }
 
 export interface DirListResult {
@@ -31,24 +36,19 @@ export interface SearchResult {
 }
 
 export interface UserPreferences {
-  // Tema
   theme: 'light' | 'dark' | 'system'
-  // Editor
-  fontSize:       number
-  fontFamily:     string
-  lineHeight:     number
-  // Comportamento
+  fontSize:           number
+  fontFamily:         string
+  lineHeight:         number
   autoSave:           boolean
-  autoSaveInterval:   number   // segundos
+  autoSaveInterval:   number
   autoPairDelimiters: boolean
   spellCheck:         boolean
-  // Modos (estado persistido)
-  focusMode:      boolean
-  typewriterMode: boolean
-  // Extensões Markdown
-  mdSubscript:    boolean   // H~2~O
-  mdSuperscript:  boolean   // E=mc^2^
-  mdHighlight:    boolean   // ==texto==
+  focusMode:          boolean
+  typewriterMode:     boolean
+  mdSubscript:        boolean
+  mdSuperscript:      boolean
+  mdHighlight:        boolean
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -83,8 +83,11 @@ export const IPC = {
   WATCH_STOP:       'watch:stop',
   PREFS_GET:        'prefs:get',
   PREFS_SET:        'prefs:set',
+  RECENT_GET:       'recent:get',
+  RECENT_ADD:       'recent:add',
 } as const
 
 export const NOTIFY = {
   FILE_CHANGED_EXTERNALLY: 'notify:file-changed',
+  RECENT_CHANGED:          'notify:recent-changed',
 } as const
