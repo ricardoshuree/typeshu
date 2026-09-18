@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
-// listDir com mtime; RECENT_GET/ADD com persistência em userData/recent.json
-import { ipcMain, dialog, BrowserWindow, shell, app } from 'electron'
+// [mcp-local harness] feature: sidebar-file-ops | plano: 59b535fe | 2026-09-18
+// +DIR_NEW, FILE_REVEAL, FILE_COPY_PATH handlers
+import { ipcMain, dialog, BrowserWindow, shell, app, clipboard } from 'electron'
 import { readFile, writeFile, readdir, stat, rename, mkdir } from 'fs/promises'
 import { join, extname, relative, dirname, basename } from 'path'
 import { IPC, NOTIFY, DEFAULT_PREFERENCES, UserPreferences, FileEntry, RecentFile, SearchFileResult, SearchResult } from '../shared/types'
@@ -24,7 +24,6 @@ async function saveRecent(list: RecentFile[]): Promise<void> {
 async function addRecent(filePath: string): Promise<RecentFile[]> {
   const name = basename(filePath)
   let list = await loadRecent()
-  // remove duplicatas
   list = list.filter(r => r.path !== filePath)
   list.unshift({ path: filePath, name })
   if (list.length > RECENT_MAX) list = list.slice(0, RECENT_MAX)
@@ -93,7 +92,6 @@ async function listDir(dirPath: string): Promise<FileEntry[]> {
       }
     } catch { /* skip */ }
   }
-  // default: pastas primeiro, depois A→Z
   return result.sort((a, b) => {
     if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
     return a.name.localeCompare(b.name)
@@ -209,6 +207,14 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
+  ipcMain.handle(IPC.DIR_NEW, async (_e, parentPath: string, dirName: string) => {
+    try {
+      const fullPath = join(parentPath, dirName)
+      await mkdir(fullPath, { recursive: false })
+      return { success: true, path: fullPath }
+    } catch (e) { return { success: false, error: String(e) } }
+  })
+
   ipcMain.handle(IPC.FILE_RENAME, async (_e, oldPath: string, newName: string) => {
     try {
       const dir = dirname(oldPath); const oldName = basename(oldPath)
@@ -223,6 +229,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.FILE_DELETE, async (_e, filePath: string) => {
     try { await shell.trashItem(filePath); return { success: true, path: filePath } }
     catch (e) { return { success: false, error: String(e) } }
+  })
+
+  ipcMain.handle(IPC.FILE_REVEAL, async (_e, filePath: string) => {
+    try {
+      // Para arquivos: abre a pasta contendo; para pastas: abre a própria pasta
+      const target = filePath
+      shell.showItemInFolder(target)
+      return { success: true }
+    } catch (e) { return { success: false, error: String(e) } }
+  })
+
+  ipcMain.handle(IPC.FILE_COPY_PATH, async (_e, filePath: string) => {
+    try {
+      clipboard.writeText(filePath)
+      return { success: true }
+    } catch (e) { return { success: false, error: String(e) } }
   })
 
   // ── Watch ──────────────────────────────────────────────────────────────
@@ -246,7 +268,6 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.RECENT_ADD, async (_e, filePath: string) => {
     const list = await addRecent(filePath)
-    // Notifica renderer para atualizar sidebar
     BrowserWindow.getAllWindows()[0]?.webContents.send(NOTIFY.RECENT_CHANGED, list)
     return list
   })

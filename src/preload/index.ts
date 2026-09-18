@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
-// +getRecent, +addRecent; +format:blockquote/bullet-list/ordered-list/table; +NOTIFY.RECENT_CHANGED
+// [mcp-local harness] feature: sidebar-file-ops | plano: 59b535fe | 2026-09-18
+// +newDir, revealInExplorer, copyPath
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
 
@@ -35,23 +35,26 @@ const LISTEN_CHANNELS = [
 type ListenChannel = typeof LISTEN_CHANNELS[number]
 
 contextBridge.exposeInMainWorld('api', {
-  openFile:    () => ipcRenderer.invoke(IPC.FILE_OPEN),
-  openPath:    (path: string) => ipcRenderer.invoke(IPC.FILE_OPEN_PATH, path),
-  saveFile:    (path: string, content: string) => ipcRenderer.invoke(IPC.FILE_SAVE, path, content),
-  saveFileAs:  (content: string) => ipcRenderer.invoke(IPC.FILE_SAVE_AS, content),
-  listDir:     (dirPath: string) => ipcRenderer.invoke(IPC.DIR_LIST, dirPath),
-  openDir:     () => ipcRenderer.invoke(IPC.DIR_OPEN),
-  searchFiles: (dirPath: string, query: string, caseSensitive?: boolean) =>
+  openFile:          () => ipcRenderer.invoke(IPC.FILE_OPEN),
+  openPath:          (path: string) => ipcRenderer.invoke(IPC.FILE_OPEN_PATH, path),
+  saveFile:          (path: string, content: string) => ipcRenderer.invoke(IPC.FILE_SAVE, path, content),
+  saveFileAs:        (content: string) => ipcRenderer.invoke(IPC.FILE_SAVE_AS, content),
+  listDir:           (dirPath: string) => ipcRenderer.invoke(IPC.DIR_LIST, dirPath),
+  openDir:           () => ipcRenderer.invoke(IPC.DIR_OPEN),
+  searchFiles:       (dirPath: string, query: string, caseSensitive?: boolean) =>
     ipcRenderer.invoke(IPC.SEARCH_FILES, dirPath, query, caseSensitive ?? false),
-  watchStart:  (path: string) => ipcRenderer.invoke(IPC.WATCH_START, path),
-  watchStop:   () => ipcRenderer.invoke(IPC.WATCH_STOP),
-  getPrefs:    () => ipcRenderer.invoke(IPC.PREFS_GET),
-  setPrefs:    (p: Record<string, unknown>) => ipcRenderer.invoke(IPC.PREFS_SET, p),
-  newFile:     (dirPath: string, fileName: string) => ipcRenderer.invoke(IPC.FILE_NEW_IN_DIR, dirPath, fileName),
-  renameFile:  (oldPath: string, newName: string)  => ipcRenderer.invoke(IPC.FILE_RENAME, oldPath, newName),
-  deleteFile:  (filePath: string)                  => ipcRenderer.invoke(IPC.FILE_DELETE, filePath),
-  getRecent:   () => ipcRenderer.invoke(IPC.RECENT_GET),
-  addRecent:   (filePath: string) => ipcRenderer.invoke(IPC.RECENT_ADD, filePath),
+  watchStart:        (path: string) => ipcRenderer.invoke(IPC.WATCH_START, path),
+  watchStop:         () => ipcRenderer.invoke(IPC.WATCH_STOP),
+  getPrefs:          () => ipcRenderer.invoke(IPC.PREFS_GET),
+  setPrefs:          (p: Record<string, unknown>) => ipcRenderer.invoke(IPC.PREFS_SET, p),
+  newFile:           (dirPath: string, fileName: string) => ipcRenderer.invoke(IPC.FILE_NEW_IN_DIR, dirPath, fileName),
+  newDir:            (parentPath: string, dirName: string) => ipcRenderer.invoke(IPC.DIR_NEW, parentPath, dirName),
+  renameFile:        (oldPath: string, newName: string)  => ipcRenderer.invoke(IPC.FILE_RENAME, oldPath, newName),
+  deleteFile:        (filePath: string) => ipcRenderer.invoke(IPC.FILE_DELETE, filePath),
+  revealInExplorer:  (filePath: string) => ipcRenderer.invoke(IPC.FILE_REVEAL, filePath),
+  copyPath:          (filePath: string) => ipcRenderer.invoke(IPC.FILE_COPY_PATH, filePath),
+  getRecent:         () => ipcRenderer.invoke(IPC.RECENT_GET),
+  addRecent:         (filePath: string) => ipcRenderer.invoke(IPC.RECENT_ADD, filePath),
 
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     if (LISTEN_CHANNELS.includes(channel as ListenChannel)) {

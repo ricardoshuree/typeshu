@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: backlog-phase1 | plano: 97306772 | 2026-09-18
-// +mtime em FileEntry, +RecentFile, +IPC RECENT_GET/ADD, +NOTIFY.RECENT_CHANGED
+// [mcp-local harness] feature: sidebar-file-ops | plano: 59b535fe | 2026-09-18
+// +IPC.DIR_NEW, FILE_REVEAL, FILE_COPY_PATH
 
 export interface OpenFile {
   path: string; name: string; content: string; isDirty: boolean
@@ -11,7 +11,7 @@ export interface FileResult {
 
 export interface FileEntry {
   name: string; path: string; isDirectory: boolean
-  mtime?: number          // epoch ms — para ordenação por data
+  mtime?: number
   children?: FileEntry[]
 }
 
@@ -76,8 +76,11 @@ export const IPC = {
   FILE_NEW_IN_DIR:  'file:new-in-dir',
   FILE_RENAME:      'file:rename',
   FILE_DELETE:      'file:delete',
+  FILE_REVEAL:      'file:reveal',
+  FILE_COPY_PATH:   'file:copy-path',
   DIR_LIST:         'dir:list',
   DIR_OPEN:         'dir:open',
+  DIR_NEW:          'dir:new',
   SEARCH_FILES:     'search:files',
   WATCH_START:      'watch:start',
   WATCH_STOP:       'watch:stop',
