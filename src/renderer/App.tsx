@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: layout-statusbar | plano: c07ea347 | 2026-09-18
-// StatusBar movido para fora de editor-area → nível de app-body
+// [mcp-local harness] feature: activity-bar-settings | plano: cf094fd7 | 2026-09-18
+// +onPrefs na ActivityBar; remove onPrefs do Toolbar (gear migrou)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { setFindOpener, setReplaceOpener } from './editor/shortcutPlugin'
@@ -452,12 +452,13 @@ export default function App(): React.JSX.Element {
     <div className={shellClass}>
       <TitleBar onAction={handleTitleBarAction} />
 
-      {/* app-body: activity bar + sidebar + editor (sem status bar) */}
       <div className="app-body">
+        {/* ActivityBar agora tem onPrefs — gear no bottom */}
         <ActivityBar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(v => !v)}
           onQuickOpen={() => setQuickOpenVisible(true)}
+          onPrefs={() => setPrefsVisible(true)}
         />
 
         {sidebarOpen && (
@@ -489,7 +490,6 @@ export default function App(): React.JSX.Element {
               onOrderedList={() => editorRef.current?.toggleOrderedList()}
               onInsertTable={() => editorRef.current?.insertTable()}
               onInsertFootnote={() => editorRef.current?.insertFootnote()}
-              onPrefs={() => setPrefsVisible(true)}
             />
           )}
 
@@ -536,7 +536,6 @@ export default function App(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Status bar — fora do app-body, largura total abaixo de tudo */}
       <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
 
       {!sourceMode && (

@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: layout-statusbar | plano: c07ea347 | 2026-09-18
-// .app-shell: column com status-bar fora do app-body; activity bar cobre toda altura do app-body
+// [mcp-local harness] feature: activity-bar-bottom-css | plano: 95a6fe0f | 2026-09-18
+// +.activity-bar-bottom: gear fixado no bottom via margin-top: auto
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -97,104 +97,49 @@
 html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: var(--font-size); line-height: var(--line-height); -webkit-font-smoothing: antialiased; }
 
 /* ── Layout shell ──────────────────────────────────────────────────────── */
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--bg);
-}
-
-/* app-body: linha horizontal — activity + sidebar + editor, sem status bar */
-.app-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* editor-area: coluna vertical dentro do app-body */
-.editor-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
+.app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--bg); }
+.app-body  { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.editor-area { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
 /* ── TitleBar ──────────────────────────────────────────────────────────── */
-.titlebar {
-  height: var(--titlebar-h); min-height: var(--titlebar-h); flex-shrink: 0;
-  display: flex; align-items: center;
-  background: var(--bg-chrome); color: var(--text-chrome);
-  font-family: var(--font-ui); font-size: 12px;
-  user-select: none; position: relative; z-index: 100;
-  border-bottom: 1px solid color-mix(in srgb, var(--bg-chrome) 60%, #000);
-}
-.titlebar-brand {
-  display: flex; align-items: center; gap: 6px;
-  padding: 0 8px 0 10px;
-  -webkit-app-region: drag;
-  flex-shrink: 0;
-}
-.titlebar-appname {
-  font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
-  color: var(--text-chrome); white-space: nowrap; opacity: 0.9;
-}
+.titlebar { height: var(--titlebar-h); min-height: var(--titlebar-h); flex-shrink: 0; display: flex; align-items: center; background: var(--bg-chrome); color: var(--text-chrome); font-family: var(--font-ui); font-size: 12px; user-select: none; position: relative; z-index: 100; border-bottom: 1px solid color-mix(in srgb, var(--bg-chrome) 60%, #000); }
+.titlebar-brand { display: flex; align-items: center; gap: 6px; padding: 0 8px 0 10px; -webkit-app-region: drag; flex-shrink: 0; }
+.titlebar-appname { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-chrome); white-space: nowrap; opacity: 0.9; }
 .titlebar-drag { -webkit-app-region: drag; }
 .titlebar-drag--fill { flex: 1; height: 100%; }
 .titlebar-menubar { display: flex; align-items: stretch; -webkit-app-region: no-drag; height: 100%; }
 .titlebar-menu-wrap { position: relative; height: 100%; display: flex; align-items: stretch; }
-.titlebar-menu-btn {
-  -webkit-app-region: no-drag;
-  background: none; border: none; color: var(--text-chrome); cursor: pointer;
-  font-size: 12px; font-family: var(--font-ui); padding: 0 10px;
-  height: 100%; display: flex; align-items: center; white-space: nowrap;
-  transition: background 0.08s;
-}
-.titlebar-menu-btn:hover, .titlebar-menu-btn--open {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-}
-.titlebar-dropdown {
-  position: absolute; top: 100%; left: 0; min-width: 220px;
-  background: var(--bg-chrome);
-  border: 1px solid color-mix(in srgb, var(--bg-chrome) 50%, #000);
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  padding: 4px 0; z-index: 9999; -webkit-app-region: no-drag;
-}
-.titlebar-dropdown-item {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%; padding: 5px 14px; background: none; border: none;
-  color: var(--text-chrome); cursor: pointer;
-  font-size: 12px; font-family: var(--font-ui);
-  text-align: left; gap: 24px; white-space: nowrap;
-}
+.titlebar-menu-btn { -webkit-app-region: no-drag; background: none; border: none; color: var(--text-chrome); cursor: pointer; font-size: 12px; font-family: var(--font-ui); padding: 0 10px; height: 100%; display: flex; align-items: center; white-space: nowrap; transition: background 0.08s; }
+.titlebar-menu-btn:hover, .titlebar-menu-btn--open { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.titlebar-dropdown { position: absolute; top: 100%; left: 0; min-width: 220px; background: var(--bg-chrome); border: 1px solid color-mix(in srgb, var(--bg-chrome) 50%, #000); border-radius: 0 0 4px 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); padding: 4px 0; z-index: 9999; -webkit-app-region: no-drag; }
+.titlebar-dropdown-item { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 5px 14px; background: none; border: none; color: var(--text-chrome); cursor: pointer; font-size: 12px; font-family: var(--font-ui); text-align: left; gap: 24px; white-space: nowrap; }
 .titlebar-dropdown-item:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .titlebar-dropdown-item:disabled { opacity: 0.4; cursor: default; }
 .titlebar-dropdown-label { flex: 1; }
 .titlebar-dropdown-accel { font-size: 11px; opacity: 0.55; font-family: var(--font-mono); letter-spacing: -0.02em; }
 .titlebar-dropdown-sep { height: 1px; background: color-mix(in srgb, var(--bg-chrome) 50%, #000); margin: 3px 0; opacity: 0.4; }
 .titlebar-wincontrols { display: flex; align-items: stretch; height: 100%; -webkit-app-region: no-drag; flex-shrink: 0; }
-.titlebar-wc-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 46px; height: 100%; background: none; border: none;
-  color: var(--text-chrome); cursor: pointer; transition: background 0.1s;
-  -webkit-app-region: no-drag;
-}
+.titlebar-wc-btn { display: flex; align-items: center; justify-content: center; width: 46px; height: 100%; background: none; border: none; color: var(--text-chrome); cursor: pointer; transition: background 0.1s; -webkit-app-region: no-drag; }
 .titlebar-wc-btn:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .titlebar-wc-btn--close:hover { background: #c42b1c; color: #fff; }
 
 /* ── Activity Bar ──────────────────────────────────────────────────────── */
 .activity-bar {
   width: var(--activity-w); min-width: var(--activity-w);
-  /* sem height fixo — estica com o app-body */
   background: var(--bg-activity); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; align-items: center;
   flex-shrink: 0; user-select: none; z-index: 10;
 }
-.activity-bar-top { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 6px; width: 100%; }
+.activity-bar-top {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding-top: 6px; width: 100%;
+}
+/* Gear fixado no bottom — margin-top: auto empurra para o final */
+.activity-bar-bottom {
+  margin-top: auto;
+  display: flex; flex-direction: column; align-items: center;
+  padding-bottom: 6px; width: 100%;
+}
 .activity-btn {
   position: relative; display: flex; align-items: center; justify-content: center;
   width: 100%; height: 44px; background: none; border: none;
@@ -363,16 +308,7 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .typewriter-mode .milkdown-root { padding-top: 45vh; padding-bottom: 45vh; }
 
 /* ── Status Bar — largura total, fora do app-body ──────────────────────── */
-.status-bar {
-  height: var(--statusbar-h); min-height: var(--statusbar-h); flex-shrink: 0;
-  background: var(--bg-chrome);
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px;
-  font-size: 11px; font-family: var(--font-mono);
-  color: var(--text-chrome);
-  user-select: none; gap: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--bg-chrome) 60%, #000);
-}
+.status-bar { height: var(--statusbar-h); min-height: var(--statusbar-h); flex-shrink: 0; background: var(--bg-chrome); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 11px; font-family: var(--font-mono); color: var(--text-chrome); user-select: none; gap: 16px; border-top: 1px solid color-mix(in srgb, var(--bg-chrome) 60%, #000); }
 .status-file { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; opacity: 0.85; }
 .status-counts { white-space: nowrap; flex-shrink: 0; opacity: 0.7; }
 .status-autosaved { color: #6dbf67; font-size: 11px; margin-left: 6px; animation: fadeIn 0.3s ease; }
@@ -513,13 +449,7 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 ::selection { background: var(--selection); }
 
 /* ── Toolbar (condicional) ─────────────────────────────────────────────── */
-.toolbar {
-  height: var(--toolbar-h); min-height: var(--toolbar-h); flex-shrink: 0;
-  display: flex; align-items: center; gap: 2px; padding: 0 8px;
-  background: var(--bg-toolbar);
-  border-bottom: 1px solid var(--border);
-  user-select: none;
-}
+.toolbar { height: var(--toolbar-h); min-height: var(--toolbar-h); flex-shrink: 0; display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--bg-toolbar); border-bottom: 1px solid var(--border); user-select: none; }
 .tb-spacer { flex: 1; }
 .tb-sep { display: block; width: 1px; height: 18px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
 .tb-btn { display: flex; align-items: center; justify-content: center; height: 28px; min-width: 28px; padding: 0; background: none; border: 1px solid transparent; border-radius: var(--radius); color: var(--text-muted); cursor: pointer; transition: background 0.1s, color 0.1s; flex-shrink: 0; }

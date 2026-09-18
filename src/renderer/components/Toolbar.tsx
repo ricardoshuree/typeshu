@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: toolbar-conditional | plano: 042b5fb6 | 2026-09-18
-// Remove fileName/isDirty (agora ficam no TitleBar); toolbar só aparece com arquivo aberto
+// [mcp-local harness] feature: toolbar-remove-prefs | plano: 9ce691b3 | 2026-09-18
+// Remove onPrefs (gear migrou para ActivityBar)
 import React from 'react'
 
 export interface ToolbarProps {
@@ -7,11 +7,10 @@ export interface ToolbarProps {
   onOrderedList:    () => void
   onInsertTable:    () => void
   onInsertFootnote: () => void
-  onPrefs:          () => void
 }
 
 export function Toolbar({
-  onBulletList, onOrderedList, onInsertTable, onInsertFootnote, onPrefs,
+  onBulletList, onOrderedList, onInsertTable, onInsertFootnote,
 }: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar">
@@ -32,12 +31,6 @@ export function Toolbar({
         style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '-0.02em', padding: '0 6px', minWidth: 32 }}
       >
         [^1]
-      </button>
-
-      <span className="tb-spacer" />
-
-      <button className="tb-btn tb-btn--icon" onClick={onPrefs} title="Preferências (Ctrl+,)" aria-label="Preferências">
-        <TbIconGear />
       </button>
     </div>
   )
@@ -78,16 +71,6 @@ function TbIconTable() {
       <line x1="6"   y1="6"   x2="6"    y2="13.5" stroke="currentColor" strokeWidth="1.25"/>
       <line x1="10"  y1="6"   x2="10"   y2="13.5" stroke="currentColor" strokeWidth="1.25"/>
       <rect x="1.5" y="2.5" width="13" height="3.5" rx="1.5" fill="currentColor" opacity="0.12"/>
-    </svg>
-  )
-}
-
-function TbIconGear() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-      <path d="M8 1.5V3M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"
-        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   )
 }
