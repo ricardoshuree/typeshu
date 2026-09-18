@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-refresh-fix | plano: f56a9b6d | 2026-09-18
-// Fix: TreeNode recarrega filhos quando refreshKey muda (após move/delete/rename)
+// [mcp-local harness] feature: sidebar-flat-mode | plano: b12aa9c0 | 2026-09-18
+// +viewMode: 'tree' | 'flat' — botões toggle no header, FlatPanel lista .md recursivamente
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { FileEntry, DirListResult, RecentFile } from '@shared/types'
 
@@ -20,7 +20,8 @@ declare const window: Window & {
   }
 }
 
-type SortMode = 'az' | 'za' | 'date'
+type SortMode  = 'az' | 'za' | 'date'
+type ViewMode  = 'tree' | 'flat'
 
 interface SidebarProps {
   currentFilePath: string | null
@@ -37,8 +38,42 @@ interface DragState {
   targetPath: string | null
 }
 
-const HOVER_EXPAND_DELAY = 600
+interface FlatFile {
+  path:     string
+  name:     string
+  relDir:   string   // caminho relativo da pasta ('' = raiz)
+}
 
+const HOVER_EXPAND_DELAY = 600
+const MD_EXTS = new Set(['.md', '.markdown', '.txt'])
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '.cache'])
+
+// ── Coleta recursiva de arquivos para o flat mode ─────────────────────────
+async function collectFiles(dirPath: string, rootPath: string, depth = 0): Promise<FlatFile[]> {
+  if (depth > 6) return []
+  try {
+    const result = await window.api.listDir(dirPath)
+    if (!result.success || !result.entries) return []
+    const files: FlatFile[] = []
+    for (const entry of result.entries) {
+      if (entry.isDirectory) {
+        if (SKIP_DIRS.has(entry.name)) continue
+        const sub = await collectFiles(entry.path, rootPath, depth + 1)
+        files.push(...sub)
+      } else {
+        const ext = entry.name.slice(entry.name.lastIndexOf('.')).toLowerCase()
+        if (!MD_EXTS.has(ext)) continue
+        const rel = dirPath === rootPath
+          ? ''
+          : dirPath.replace(/\\/g, '/').slice(rootPath.replace(/\\/g, '/').length + 1)
+        files.push({ path: entry.path, name: entry.name, relDir: rel })
+      }
+    }
+    return files
+  } catch { return [] }
+}
+
+// ── SVG Icons ─────────────────────────────────────────────────────────────
 function IconFolder({ open }: { open: boolean }) {
   return open ? (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -59,6 +94,31 @@ function IconFile({ name }: { name: string }) {
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
       <path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.25"/>
       <path d="M10 2v4h4" stroke={color} strokeWidth="1.25" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+// ── Ícones do toggle de view mode ─────────────────────────────────────────
+function IconTreeView() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <line x1="3" y1="3" x2="3" y2="13" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <line x1="3" y1="5"  x2="6"  y2="5"  stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <line x1="3" y1="9"  x2="6"  y2="9"  stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <line x1="3" y1="13" x2="6"  y2="13" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <rect x="6"  y="3"  width="7" height="3" rx="1" fill="currentColor" opacity="0.7"/>
+      <rect x="8"  y="7"  width="6" height="3" rx="1" fill="currentColor" opacity="0.5"/>
+      <rect x="8"  y="11" width="6" height="3" rx="1" fill="currentColor" opacity="0.5"/>
+    </svg>
+  )
+}
+
+function IconFlatList() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <line x1="2" y1="4"  x2="14" y2="4"  stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="2" y1="8"  x2="14" y2="8"  stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="2" y1="12" x2="14" y2="12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -125,6 +185,65 @@ function InlineInput({ initialValue, placeholder, selectUpToLastDot, paddingLeft
   )
 }
 
+// ── Flat Panel ────────────────────────────────────────────────────────────
+function FlatPanel({ rootPath, currentFilePath, sortMode, refreshKey, onFileOpen }: {
+  rootPath:        string
+  currentFilePath: string | null
+  sortMode:        SortMode
+  refreshKey:      number
+  onFileOpen:      (path: string, content: string) => void
+}): React.JSX.Element {
+  const [files, setFiles] = useState<FlatFile[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const collected = await collectFiles(rootPath, rootPath)
+    const sorted = collected.sort((a, b) => {
+      if (sortMode === 'az')   return a.name.localeCompare(b.name)
+      if (sortMode === 'za')   return b.name.localeCompare(a.name)
+      return a.name.localeCompare(b.name)
+    })
+    setFiles(sorted)
+    setLoading(false)
+  }, [rootPath, sortMode])
+
+  useEffect(() => { load() }, [load, refreshKey])
+
+  const handleClick = useCallback(async (file: FlatFile) => {
+    const result = await window.api.openPath(file.path)
+    if (result.success && result.content !== undefined && result.path) onFileOpen(result.path, result.content)
+  }, [onFileOpen])
+
+  if (loading) return <div className="sidebar-empty" style={{ fontSize: 12 }}>Carregando…</div>
+  if (files.length === 0) return <div className="sidebar-empty"><p>Nenhum arquivo encontrado.</p></div>
+
+  return (
+    <div className="sidebar-tree">
+      {files.map(file => (
+        <div
+          key={file.path}
+          className={`tree-item ${file.path === currentFilePath ? 'tree-item--active' : ''}`}
+          style={{ paddingLeft: 12, gap: 6, justifyContent: 'space-between' }}
+          onClick={() => handleClick(file)}
+          title={file.path}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <IconFile name={file.name} />
+            <span className="tree-name">{file.name}</span>
+          </div>
+          {file.relDir && (
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, fontFamily: 'var(--font-mono)', paddingRight: 4 }}>
+              {file.relDir}/
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── TreeNode ──────────────────────────────────────────────────────────────
 type CreatingInDir = { parentPath: string; type: 'file' | 'dir' }
 
 function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renamingPath, onRenameConfirm, onRenameCancel, depth, sortMode, creatingInDir, onNewFileConfirm, onNewDirConfirm, onNewCancel, dragState, onDragStart, onDrop, onDragEnd, refreshKey }: {
@@ -161,16 +280,13 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
     return [...sort(dirs), ...sort(files)]
   }, [sortMode])
 
-  useEffect(() => {
-    if (creatingInDir?.parentPath === entry.path && !expanded) setExpanded(true)
-  }, [creatingInDir, entry.path, expanded])
+  useEffect(() => { if (creatingInDir?.parentPath === entry.path && !expanded) setExpanded(true) }, [creatingInDir, entry.path, expanded])
 
   const loadChildren = useCallback(async () => {
     const result = await window.api.listDir(entry.path)
     if (result.success && result.entries) setChildren(result.entries)
   }, [entry.path])
 
-  // Recarrega filhos quando refreshKey muda e o nó está expandido
   useEffect(() => {
     if (expanded) loadChildren()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,9 +330,7 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
     }
   }
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.stopPropagation(); setIsDropTarget(false); clearHoverTimer()
-  }
+  const handleDragLeave = (e: React.DragEvent) => { e.stopPropagation(); setIsDropTarget(false); clearHoverTimer() }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation()
@@ -377,12 +491,13 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
   const [tab, setTab]                   = useState<Tab>('files')
   const [entries, setEntries]           = useState<FileEntry[]>([])
   const [sortMode, setSortMode]         = useState<SortMode>('az')
+  const [viewMode, setViewMode]         = useState<ViewMode>('tree')
   const [contextMenu, setContextMenu]   = useState<ContextMenuState | null>(null)
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null)
   const [creatingRoot, setCreatingRoot]   = useState<'file' | 'dir' | null>(null)
   const [creatingInDir, setCreatingInDir] = useState<CreatingInDir | null>(null)
-  const [refreshKey, setRefreshKey]       = useState(0)  // incrementa após qualquer op de filesystem
+  const [refreshKey, setRefreshKey]       = useState(0)
   const rootDirPathRef  = useRef<string | null>(null)
   const [rootDirName, setRootDirName]   = useState<string>('Nenhuma pasta')
   const dragState   = useRef<DragState>({ entry: null, targetPath: null })
@@ -406,13 +521,12 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
     onDirChange(path)
   }, [onDirChange])
 
-  // refreshRoot: recarrega raiz E dispara refreshKey para que TreeNodes expandidos também recarreguem
   const refreshRoot = useCallback(async () => {
     const root = rootDirPathRef.current; if (!root) return
     const result = await window.api.listDir(root)
     if (result.success && result.entries) {
       setEntries(result.entries)
-      setRefreshKey(k => k + 1)  // propaga para todos os TreeNodes expandidos
+      setRefreshKey(k => k + 1)
     }
   }, [])
 
@@ -531,21 +645,43 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
         {tab === 'files' && rootDirPath && (
           <>
             <button className="sidebar-btn sidebar-sort-btn" title={SORT_TITLES[SORT_NEXT[sortMode]]} onClick={() => setSortMode(SORT_NEXT[sortMode])}>{SORT_LABELS[sortMode]}</button>
-            <button className="sidebar-btn" title="Novo arquivo" onClick={() => { setCreatingRoot('file'); setCreatingInDir(null); setRenamingPath(null) }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
-                <path d="M10 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
-                <line x1="6" y1="9.5" x2="10" y2="9.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-                <line x1="8" y1="7.5" x2="8" y2="11.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-              </svg>
+            {/* Botões de view mode — só aparecem com pasta aberta */}
+            <button
+              className={`sidebar-btn${viewMode === 'tree' ? ' sidebar-btn--active' : ''}`}
+              title="Modo árvore"
+              onClick={() => setViewMode('tree')}
+              aria-pressed={viewMode === 'tree'}
+            >
+              <IconTreeView />
             </button>
-            <button className="sidebar-btn" title="Nova pasta" onClick={() => { setCreatingRoot('dir'); setCreatingInDir(null); setRenamingPath(null) }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M1.5 5A1.5 1.5 0 0 1 3 3.5h3L7.5 5H13A1.5 1.5 0 0 1 14.5 6.5V12A1.5 1.5 0 0 1 13 13.5H3A1.5 1.5 0 0 1 1.5 12V5z" stroke="currentColor" strokeWidth="1.25"/>
-                <line x1="8" y1="7.5" x2="8" y2="10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-                <line x1="6.5" y1="9" x2="9.5" y2="9" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-              </svg>
+            <button
+              className={`sidebar-btn${viewMode === 'flat' ? ' sidebar-btn--active' : ''}`}
+              title="Modo lista plana"
+              onClick={() => setViewMode('flat')}
+              aria-pressed={viewMode === 'flat'}
+            >
+              <IconFlatList />
             </button>
+            {/* Botões de novo arquivo/pasta só no modo tree */}
+            {viewMode === 'tree' && (
+              <>
+                <button className="sidebar-btn" title="Novo arquivo" onClick={() => { setCreatingRoot('file'); setCreatingInDir(null); setRenamingPath(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+                    <path d="M10 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+                    <line x1="6" y1="9.5" x2="10" y2="9.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                    <line x1="8" y1="7.5" x2="8" y2="11.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                  </svg>
+                </button>
+                <button className="sidebar-btn" title="Nova pasta" onClick={() => { setCreatingRoot('dir'); setCreatingInDir(null); setRenamingPath(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M1.5 5A1.5 1.5 0 0 1 3 3.5h3L7.5 5H13A1.5 1.5 0 0 1 14.5 6.5V12A1.5 1.5 0 0 1 13 13.5H3A1.5 1.5 0 0 1 1.5 12V5z" stroke="currentColor" strokeWidth="1.25"/>
+                    <line x1="8" y1="7.5" x2="8" y2="10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                    <line x1="6.5" y1="9" x2="9.5" y2="9" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </>
+            )}
           </>
         )}
       </div>
@@ -557,30 +693,40 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
       ) : tab === 'outline' ? (
         <div className="sidebar-tree"><OutlinePanel markdown={currentMarkdown} /></div>
       ) : (
-        <div className="sidebar-tree">
-          {entries.length === 0 && !creatingRoot ? (
-            <div className="sidebar-empty">
-              <p>Nenhuma pasta aberta</p>
-              <button className="sidebar-open-btn" onClick={handleOpenDir}>Abrir pasta</button>
-            </div>
-          ) : (
-            <>
-              {creatingRoot === 'file' && <InlineInput initialValue="sem-título.md" selectUpToLastDot paddingLeft={12} onConfirm={handleNewFileRoot} onCancel={() => setCreatingRoot(null)} />}
-              {creatingRoot === 'dir'  && <InlineInput initialValue="nova-pasta" paddingLeft={12} onConfirm={handleNewDirRoot} onCancel={() => setCreatingRoot(null)} />}
-              {sortEntries(entries).map(entry => (
-                <TreeNode key={entry.path} entry={entry} currentFilePath={currentFilePath}
-                  onFileClick={handleFileClick}
-                  onContextMenu={(e, entry) => { setContextMenu({ x: e.clientX, y: e.clientY, entry }); setConfirmDelete(null) }}
-                  renamingPath={renamingPath} onRenameConfirm={handleRenameConfirm} onRenameCancel={() => setRenamingPath(null)}
-                  depth={0} sortMode={sortMode}
-                  creatingInDir={creatingInDir} onNewFileConfirm={handleNewFileInDir} onNewDirConfirm={handleNewDirInDir} onNewCancel={() => setCreatingInDir(null)}
-                  dragState={dragState} onDragStart={handleDragStart} onDrop={handleDrop} onDragEnd={handleDragEnd}
-                  refreshKey={refreshKey}
-                />
-              ))}
-            </>
-          )}
-        </div>
+        viewMode === 'flat' && rootDirPath ? (
+          <FlatPanel
+            rootPath={rootDirPath}
+            currentFilePath={currentFilePath}
+            sortMode={sortMode}
+            refreshKey={refreshKey}
+            onFileOpen={onFileOpen}
+          />
+        ) : (
+          <div className="sidebar-tree">
+            {entries.length === 0 && !creatingRoot ? (
+              <div className="sidebar-empty">
+                <p>Nenhuma pasta aberta</p>
+                <button className="sidebar-open-btn" onClick={handleOpenDir}>Abrir pasta</button>
+              </div>
+            ) : (
+              <>
+                {creatingRoot === 'file' && <InlineInput initialValue="sem-título.md" selectUpToLastDot paddingLeft={12} onConfirm={handleNewFileRoot} onCancel={() => setCreatingRoot(null)} />}
+                {creatingRoot === 'dir'  && <InlineInput initialValue="nova-pasta" paddingLeft={12} onConfirm={handleNewDirRoot} onCancel={() => setCreatingRoot(null)} />}
+                {sortEntries(entries).map(entry => (
+                  <TreeNode key={entry.path} entry={entry} currentFilePath={currentFilePath}
+                    onFileClick={handleFileClick}
+                    onContextMenu={(e, entry) => { setContextMenu({ x: e.clientX, y: e.clientY, entry }); setConfirmDelete(null) }}
+                    renamingPath={renamingPath} onRenameConfirm={handleRenameConfirm} onRenameCancel={() => setRenamingPath(null)}
+                    depth={0} sortMode={sortMode}
+                    creatingInDir={creatingInDir} onNewFileConfirm={handleNewFileInDir} onNewDirConfirm={handleNewDirInDir} onNewCancel={() => setCreatingInDir(null)}
+                    dragState={dragState} onDragStart={handleDragStart} onDrop={handleDrop} onDragEnd={handleDragEnd}
+                    refreshKey={refreshKey}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        )
       )}
 
       {contextMenu && (
