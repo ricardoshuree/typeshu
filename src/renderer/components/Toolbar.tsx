@@ -1,5 +1,3 @@
-// [mcp-local harness] feature: toolbar-remove-prefs | plano: 9ce691b3 | 2026-09-18
-// Remove onPrefs (gear migrou para ActivityBar)
 import React from 'react'
 
 export interface ToolbarProps {
@@ -7,10 +5,13 @@ export interface ToolbarProps {
   onOrderedList:    () => void
   onInsertTable:    () => void
   onInsertFootnote: () => void
+  sourceMode:       boolean
+  onToggleSource:   () => void
 }
 
 export function Toolbar({
   onBulletList, onOrderedList, onInsertTable, onInsertFootnote,
+  sourceMode, onToggleSource,
 }: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar">
@@ -31,6 +32,18 @@ export function Toolbar({
         style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '-0.02em', padding: '0 6px', minWidth: 32 }}
       >
         [^1]
+      </button>
+
+      <span className="tb-spacer" />
+
+      <button
+        className={`tb-btn${sourceMode ? ' tb-btn--active' : ''}`}
+        onClick={onToggleSource}
+        title="Toggle Source Mode (Ctrl+/)"
+        aria-label="Toggle Source Mode"
+        style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '-0.02em', padding: '0 8px', minWidth: 'auto', whiteSpace: 'nowrap' }}
+      >
+        {sourceMode ? 'Mark Render' : 'Mark Source'}
       </button>
     </div>
   )

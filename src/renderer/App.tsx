@@ -691,6 +691,8 @@ export default function App(): React.JSX.Element {
               onOrderedList={() => editorRef.current?.toggleOrderedList()}
               onInsertTable={() => editorRef.current?.insertTable()}
               onInsertFootnote={() => editorRef.current?.insertFootnote()}
+              sourceMode={sourceMode}
+              onToggleSource={() => setSourceMode(v => !v)}
             />
           )}
 
