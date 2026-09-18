@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: fix-shortcuts-v3 | plano: 96857234 | 2026-09-17 21:16:44
-// Fix Alt+Shift+5 aceita Numpad5; Ctrl+Shift+K com toLowerCase; sem logs de debug
-// App.tsx — fix Alt+Shift+5 (Numpad5 + Digit5), Ctrl+Shift+K via IPC direto
+// [mcp-local harness] feature: sidebar-file-ops-app | plano: bbceaf9c | 2026-09-17 21:52:21
+// App.tsx: window.api com newFile/renameFile/deleteFile, callbacks onFileDelete/onFileRename passados ao Sidebar
+// App.tsx — sidebar com operações de arquivo (novo, renomear, deletar)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { Sidebar } from './components/Sidebar'
@@ -23,8 +23,6 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 - Busca em arquivos com \`Ctrl+Shift+F\`
 - Toggle sidebar com \`Ctrl+Shift+L\`
 - Salve com \`Ctrl+S\`
-- Alterne modo código com \`Ctrl+/\`
-- Focus Mode com \`F8\` · Typewriter com \`F9\`
 
 ## Formatação
 
@@ -47,6 +45,9 @@ declare const window: Window & {
     saveFileAs:  (content: string) => Promise<{ success: boolean; path?: string }>
     watchStart:  (path: string) => Promise<{ success: boolean }>
     watchStop:   () => Promise<{ success: boolean }>
+    newFile:     (dirPath: string, fileName: string) => Promise<{ success: boolean; path?: string; content?: string; error?: string }>
+    renameFile:  (oldPath: string, newName: string)  => Promise<{ success: boolean; newPath?: string; error?: string }>
+    deleteFile:  (filePath: string) => Promise<{ success: boolean; error?: string }>
     on:          (channel: string, cb: (...args: unknown[]) => void) => void
     removeAllListeners: (channel: string) => void
   }
@@ -96,8 +97,7 @@ code{font-family:monospace;background:#f3f3f3;padding:.1em .4em;border-radius:3p
 pre{background:#f3f3f3;padding:1em;overflow-x:auto;border-radius:4px}pre code{background:none;padding:0}
 blockquote{border-left:3px solid #e0e0e0;padding-left:1em;color:#6b6b6b;margin:.75em 0}
 table{border-collapse:collapse;width:100%}th,td{border:1px solid #e0e0e0;padding:.5em .75em;text-align:left}
-th{background:#f3f3f3;font-weight:600}a{color:#4a90d9}img{max-width:100%}
-del{text-decoration:line-through;color:#888}
+th{background:#f3f3f3;font-weight:600}a{color:#4a90d9}img{max-width:100%}del{text-decoration:line-through;color:#888}
 </style></head><body>${editor.innerHTML}</body></html>`
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url  = URL.createObjectURL(blob)
@@ -155,6 +155,27 @@ export default function App(): React.JSX.Element {
   }, [])
 
   const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
+
+  // Se o arquivo aberto foi deletado → novo documento em branco
+  const handleFileDelete = useCallback((deletedPath: string) => {
+    if (deletedPath === filePathRef.current) {
+      window.api.watchStop()
+      editorContentRef.current = ''
+      setInitialContent(''); setEditorKey(k => k + 1)
+      setFilePath(null); setFileName('Sem título')
+      setIsDirty(false); setFrontMatter(null); setOutlineMarkdown('')
+      setWordCountContent(''); setAutoSaved(false); setExternalChanged(false)
+    }
+  }, [])
+
+  // Se o arquivo aberto foi renomeado → atualiza filePath/fileName
+  const handleFileRename = useCallback((oldPath: string, newPath: string) => {
+    if (oldPath === filePathRef.current) {
+      setFilePath(newPath)
+      setFileName(newPath.split(/[\\/]/).pop() ?? newPath)
+      window.api.watchStart(newPath)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(async () => {
@@ -249,42 +270,20 @@ export default function App(): React.JSX.Element {
     return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
   }, [handleSave, handleSaveAs, handleNew])
 
-  // ── Atalhos ───────────────────────────────────────────────────────────
-  // Diagnóstico revelou:
-  //   Alt+Shift+5 → key='Clear', code='Numpad5'  (teclado numérico no Windows)
-  //   Ctrl+Shift+K → key='K', code='KeyK', ctrl=true, shift=true  (chega correto)
-  //
-  // Para strikethrough: checar code === 'Numpad5' OU code === 'Digit5'
-  // Para code fence: key='K' chega maiúsculo → toLowerCase() resolve
-  //   MAS o autoPairPlugin pode interceptar — movemos o Ctrl+Shift+K para
-  //   handleDOMEvents dentro do MilkdownAdapter (antes do autoPair processar)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const ctrl  = e.ctrlKey || e.metaKey
     const shift = e.shiftKey
     const alt   = e.altKey
     const key   = e.key.toLowerCase()
-    const code  = e.code  // layout-independente
+    const code  = e.code
 
     if (ctrl && !shift && !alt && key === 'b') { e.preventDefault(); editorRef.current?.toggleBold(); return }
     if (ctrl && !shift && !alt && key === 'i') { e.preventDefault(); editorRef.current?.toggleItalic(); return }
-
-    // Alt+Shift+5 — suporta tanto Digit5 (teclado principal) quanto Numpad5
-    if (alt && shift && !ctrl && (code === 'Digit5' || code === 'Numpad5')) {
-      e.preventDefault()
-      editorRef.current?.toggleStrikethrough()
-      return
-    }
-
-    // Ctrl+K — link dialog
+    if (alt && shift && !ctrl && (code === 'Digit5' || code === 'Numpad5')) { e.preventDefault(); editorRef.current?.toggleStrikethrough(); return }
     if (ctrl && !shift && !alt && key === 'k') { e.preventDefault(); openLinkDialog(); return }
-
-    // Ctrl+Shift+K — code fence
-    // Nota: chega como key='K' (maiúsculo) no Windows — toLowerCase() resolve
-    if (ctrl && shift && !alt && key === 'k') { e.preventDefault(); editorRef.current?.insertCodeFence(); return }
-
+    if (ctrl && shift && !alt && key === 'k')  { e.preventDefault(); editorRef.current?.insertCodeFence(); return }
     if (ctrl && !shift && !alt && key >= '1' && key <= '6') { e.preventDefault(); editorRef.current?.setHeading(Number(key) as 1|2|3|4|5|6); return }
     if (ctrl && shift && !alt && key === '0') { e.preventDefault(); editorRef.current?.setHeading(0); return }
-
     if (ctrl && !shift && !alt && key === '/') { e.preventDefault(); setSourceMode(v => !v); return }
     if (ctrl && shift && !alt && key === 'l')  { e.preventDefault(); setSidebarOpen(v => !v); return }
   }, [openLinkDialog])
@@ -325,7 +324,14 @@ export default function App(): React.JSX.Element {
             <GlobalSearch dirPath={currentDirPath} onOpen={(path, content) => { loadFile(path, content); setGlobalSearchVisible(false) }} onClose={() => setGlobalSearchVisible(false)} />
           </div>
         ) : (
-          <Sidebar currentFilePath={filePath} currentMarkdown={outlineMarkdown} onFileOpen={loadFile} onDirChange={handleDirChange} />
+          <Sidebar
+            currentFilePath={filePath}
+            currentMarkdown={outlineMarkdown}
+            onFileOpen={loadFile}
+            onDirChange={handleDirChange}
+            onFileDelete={handleFileDelete}
+            onFileRename={handleFileRename}
+          />
         )
       )}
       <div className="editor-area">

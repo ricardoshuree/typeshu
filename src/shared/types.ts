@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: autosave-watch | plano: d73bdc33 | 2026-09-17 15:57:20
-// Adiciona autoSave/autoSaveInterval às prefs, IPC.WATCH_START/STOP e NOTIFY.FILE_CHANGED_EXTERNALLY
+// [mcp-local harness] feature: sidebar-file-ops | plano: b136dd71 | 2026-09-17 21:47:04
+// Adiciona FILE_NEW_IN_DIR, FILE_RENAME, FILE_DELETE ao IPC
 // src/shared/types.ts — tipos compartilhados entre main e renderer
 
 export interface OpenFile {
@@ -35,8 +35,8 @@ export interface UserPreferences {
   fontSize: number; fontFamily: string; lineHeight: number
   focusMode: boolean; typewriterMode: boolean; spellCheck: boolean
   autoPairDelimiters: boolean
-  autoSave: boolean        // auto-save ligado/desligado
-  autoSaveInterval: number // segundos entre saves (padrão 30)
+  autoSave: boolean
+  autoSaveInterval: number
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -53,21 +53,23 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 }
 
 export const IPC = {
-  FILE_OPEN:       'file:open',
-  FILE_OPEN_PATH:  'file:open-path',
-  FILE_SAVE:       'file:save',
-  FILE_SAVE_AS:    'file:save-as',
-  FILE_NEW:        'file:new',
-  DIR_LIST:        'dir:list',
-  DIR_OPEN:        'dir:open',
-  SEARCH_FILES:    'search:files',
-  WATCH_START:     'watch:start',    // renderer pede para observar um arquivo
-  WATCH_STOP:      'watch:stop',     // renderer pede para parar de observar
-  PREFS_GET:       'prefs:get',
-  PREFS_SET:       'prefs:set',
+  FILE_OPEN:        'file:open',
+  FILE_OPEN_PATH:   'file:open-path',
+  FILE_SAVE:        'file:save',
+  FILE_SAVE_AS:     'file:save-as',
+  FILE_NEW:         'file:new',
+  FILE_NEW_IN_DIR:  'file:new-in-dir',   // cria arquivo em pasta específica
+  FILE_RENAME:      'file:rename',        // renomeia arquivo/pasta
+  FILE_DELETE:      'file:delete',        // move para lixeira
+  DIR_LIST:         'dir:list',
+  DIR_OPEN:         'dir:open',
+  SEARCH_FILES:     'search:files',
+  WATCH_START:      'watch:start',
+  WATCH_STOP:       'watch:stop',
+  PREFS_GET:        'prefs:get',
+  PREFS_SET:        'prefs:set',
 } as const
 
-// Canais que o main envia ao renderer (notificações)
 export const NOTIFY = {
-  FILE_CHANGED_EXTERNALLY: 'notify:file-changed', // arquivo mudou no disco
+  FILE_CHANGED_EXTERNALLY: 'notify:file-changed',
 } as const

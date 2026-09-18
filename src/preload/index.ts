@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: format-strikethrough-link-codefence-sidebar | plano: ee7b144b | 2026-09-17 17:45:07
-// Preload: adiciona format:strikethrough, format:link, format:code-fence à whitelist
-// Preload: whitelist com strikethrough, link, code-fence
+// [mcp-local harness] feature: sidebar-file-ops | plano: b136dd71 | 2026-09-17 21:47:58
+// Preload expõe newFile, renameFile, deleteFile
+// Preload: whitelist completa incluindo operações de sidebar
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
 
@@ -15,9 +15,9 @@ const LISTEN_CHANNELS = [
   'ui:export-html',
   'format:bold',
   'format:italic',
-  'format:strikethrough',   // novo
-  'format:link',            // novo
-  'format:code-fence',      // novo
+  'format:strikethrough',
+  'format:link',
+  'format:code-fence',
   'format:heading',
   'view:toggle-sidebar',
   'view:toggle-source',
@@ -41,6 +41,11 @@ contextBridge.exposeInMainWorld('api', {
   watchStop:   () => ipcRenderer.invoke(IPC.WATCH_STOP),
   getPrefs:    () => ipcRenderer.invoke(IPC.PREFS_GET),
   setPrefs:    (p: Record<string, unknown>) => ipcRenderer.invoke(IPC.PREFS_SET, p),
+
+  // Operações de arquivo da sidebar
+  newFile:     (dirPath: string, fileName: string) => ipcRenderer.invoke(IPC.FILE_NEW_IN_DIR, dirPath, fileName),
+  renameFile:  (oldPath: string, newName: string)  => ipcRenderer.invoke(IPC.FILE_RENAME, oldPath, newName),
+  deleteFile:  (filePath: string)                  => ipcRenderer.invoke(IPC.FILE_DELETE, filePath),
 
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     if (LISTEN_CHANNELS.includes(channel as ListenChannel)) {
