@@ -1,9 +1,9 @@
-# [mcp-local harness] feature: monitor-restore-bars | plano: 112af46f | 2026-09-17 11:50:15
-# Restaurar barras de duracao com blocos Unicode solidos e cores originais
-# [mcp-local harness] feature: monitor-restore-bars | plano: 112af46f | 2026-09-17 11:48:52
-# Restaurar barras de duracao com blocos Unicode e cores originais
+# [mcp-local harness] feature: monitor-palette | plano: 983a0d00 | 2026-09-17 22:50:49
+# Paleta final: verde/amarelo/laranja em todos os lugares — sparkline, barras, ms, legendas
+# [mcp-local harness] feature: monitor-palette | plano: 983a0d00 | 2026-09-17 22:49
+# Paleta: verde/amarelo/laranja (era verde/laranja/vermelho)
 """
-monitor_mcp.py - TypeMarkLee MCP Monitor
+monitor_mcp.py - TypeShu MCP Monitor
 Uso:
   python monitor_mcp.py             -> roda no terminal atual
   python monitor_mcp.py --terminal  -> abre em nova janela PowerShell
@@ -15,8 +15,13 @@ Fontes de dados:
   - mcp-local/monitor/tool_calls.db  -> duracao (ms) e status ok/erro por chamada
   - mcp-local/mcp_audit.jsonl        -> feature e path por operacao
 
-Layout por linha:
-  HH:MM:SS  ok  write_file  12.8 ms  blocos  feature  [EXT] path/arquivo.ts
+Paleta de cores:
+  Verde  (#52FF52) — rapido  / menor do historico  (ms < 50)
+  Amarelo(#FFE000) — normal  / medio do historico  (ms < 200)
+  Laranja(#FF8C00) — lento   / maior do historico  (ms >= 200)
+  Vermelho(#DC3C3C)— erro / offline
+  Sparkline: relativo ao historico (sempre tem variacao visual)
+  Barras/ms: absoluto (<50 verde, <200 amarelo, >=200 laranja)
 """
 from __future__ import annotations
 import sys, os, time, threading, re, json, sqlite3, subprocess, tempfile
@@ -31,7 +36,7 @@ if "--terminal" in sys.argv:
     root   = script.parent
 
     ps_content = (
-        f'$host.UI.RawUI.WindowTitle = "TypeMarkLee Monitor"\r\n'
+        f'$host.UI.RawUI.WindowTitle = "TypeShu Monitor"\r\n'
         f'Set-Location "{root}"\r\n'
         f'& "{python}" "{script}"\r\n'
         f'Read-Host "Pressione Enter para fechar"\r\n'
@@ -43,7 +48,7 @@ if "--terminal" in sys.argv:
         "powershell",
         "-ExecutionPolicy", "Bypass",
         "-File", str(tmp),
-    ], creationflags=0x00000010)  # CREATE_NEW_CONSOLE
+    ], creationflags=0x00000010)
     sys.exit(0)
 # -----------------------------------------------------------------------------
 
@@ -59,17 +64,19 @@ ROOT        = Path(__file__).parent
 AUDIT_FILE  = ROOT / "mcp-local" / "mcp_audit.jsonl"
 TELEM_DB    = ROOT / "mcp-local" / "monitor" / "tool_calls.db"
 
+# ── Paleta RGB direto ─────────────────────────────────────────────────────────
 _R   = "\033[0m"
-_G   = "\x1b[38;5;82m"
-_GN  = "\x1b[38;5;190m"
-_RD  = "\x1b[38;5;160m"
-_AM  = "\x1b[38;5;208m"
+_G   = "\x1b[38;2;82;255;82m"      # verde    — rápido / menor
+_YL  = "\x1b[38;2;255;224;0m"      # amarelo  — normal / médio
+_AM  = "\x1b[38;2;255;140;0m"      # laranja  — lento  / maior
+_RD  = "\x1b[38;2;220;60;60m"      # vermelho — erro / offline
 _DIM = "\x1b[2m"
 _BD  = "\x1b[1m"
-_GR  = "\x1b[38;5;240m"
-_CY  = "\x1b[38;5;39m"
-_BL  = "\x1b[38;5;75m"
-_PU  = "\x1b[38;5;141m"
+_GR  = "\x1b[38;2;100;100;100m"    # cinza    — vazio / dim
+_CY  = "\x1b[38;2;40;180;255m"     # ciano    — genérico
+_BL  = "\x1b[38;2;100;160;255m"    # azul     — feature name
+_PU  = "\x1b[38;2;180;140;255m"    # roxo     — título
+# ─────────────────────────────────────────────────────────────────────────────
 
 _PING_INTERVAL = 3.0
 _HIST_W   = 80
@@ -93,10 +100,10 @@ _EVENT_LABEL = {
 _OP_COLOR = {
     "propose_change": _BL,
     "approve_change": _G,
-    "write_file":     _GN,
+    "write_file":     _YL,
     "read_file":      _DIM,
     "list_dir":       _GR,
-    "reject_change":  _AM,
+    "reject_change":  _RD,
 }
 
 _EXT_ICON = {
@@ -129,7 +136,7 @@ class MCPStatus:
     def lat_str(self):
         if self.lat_ms is None:
             return f"{_RD}offline{_R}"
-        c = _G if self.lat_ms < 50 else (_GN if self.lat_ms < 200 else _AM)
+        c = _G if self.lat_ms < 50 else (_YL if self.lat_ms < 200 else _AM)
         return f"{c}{self.lat_ms:>5.0f} ms{_R}"
 
     def uptime_str(self):
@@ -192,30 +199,41 @@ def _poll(s: MCPStatus):
 
 
 def _hist(history, width):
-    """Sparkline do historico de latencia com blocos Unicode coloridos."""
-    vals = [v for v in history if v is not None]
-    if not vals:
+    """Sparkline com cor RELATIVA ao historico.
+    norm < 0.4 = verde, < 0.7 = amarelo, >= 0.7 = laranja.
+    Sempre tem variacao visual mesmo quando todas as latencias sao baixas.
+    """
+    items = list(history)[-width:]
+    valid = [v for v in items if v is not None]
+    if not valid:
         return _GR + ("\u2500" * width) + _R
-    vmax = max(vals) or 1
+
+    mn  = min(valid)
+    mx  = max(valid)
+    rng = max(mx - mn, 1.0)
+
     out = []
-    for v in list(history)[-width:]:
+    for v in items:
         if v is None:
             out.append(f"{_RD}\u2500{_R}")
         else:
-            idx = max(1, int((v / vmax) * (len(_BLOCKS) - 1)))
-            c   = _G if v < 50 else (_GN if v < 200 else _AM)
-            out.append(f"{c}{_BLOCKS[idx]}{_R}")
+            norm = (v - mn) / rng
+            idx  = max(1, min(8, int(norm * 7) + 1))
+            col  = _G if norm < 0.4 else (_YL if norm < 0.7 else _AM)
+            out.append(f"{col}{_BLOCKS[idx]}{_R}")
     return "".join(out)
 
 
 def _dur_bar(dur_ms: float, max_ms: float, width: int = _BAR_W) -> str:
-    """Barra de duracao: blocos solidos coloridos + fundo cinza."""
+    """Barra de duracao com cor ABSOLUTA.
+    < 50ms = verde, < 200ms = amarelo, >= 200ms = laranja.
+    """
     if max_ms <= 0:
         max_ms = 1
     ratio  = min(dur_ms / max_ms, 1.0)
     filled = max(1, int(ratio * width))
     empty  = width - filled
-    c = _G if dur_ms < 50 else (_GN if dur_ms < 200 else _AM)
+    c = _G if dur_ms < 50 else (_YL if dur_ms < 200 else _AM)
     return f"{c}{'\u2588' * filled}{_R}{_GR}{'\u2591' * empty}{_R}"
 
 
@@ -341,7 +359,7 @@ def _render_calls(rows: list[dict]) -> list[str]:
         path    = r["path"]
 
         c_op  = _OP_COLOR.get(tool, _CY)
-        c_dur = _G if dur < 50 else (_GN if dur < 200 else _AM)
+        c_dur = _G if dur < 50 else (_YL if dur < 200 else _AM)
         bar   = _dur_bar(dur, max_ms)
 
         l1 = (
@@ -372,9 +390,10 @@ def _legend_calls():
         f"{_R}{_DIM}  {'.' * (_LINE_W - 4)}{_R}\n"
         f"  {_DIM}tool calls: banco {db_st}  "
         f"ok=sucesso  er=erro  "
-        f"\u2588{_R}{_DIM}=rapido(verde)  \u2588{_R}{_DIM}=normal(amarelo)  "
-        f"\u2588{_R}{_DIM}=lento(laranja)  "
-        f"\u2591{_R}{_GR}=vazio  audit:{_R} {jl_st}"
+        f"{_G}\u2588{_R}{_DIM}=rapido(<50ms)  "
+        f"{_YL}\u2588{_R}{_DIM}=normal(<200ms)  "
+        f"{_AM}\u2588{_R}{_DIM}=lento(>=200ms)  "
+        f"{_GR}\u2591{_R}{_GR}=vazio{_R}  audit: {jl_st}"
     )
 
 
@@ -397,9 +416,9 @@ def _mcp_block(s: MCPStatus) -> list[str]:
 def _legend_ping() -> list[str]:
     return [
         f"  {_DIM}ping: cada bloco = {_PING_INTERVAL:.0f}s  "
-        f"{_G}\u2587{_R}{_DIM}=rapido  "
-        f"{_GN}\u2587{_R}{_DIM}=normal  "
-        f"{_AM}\u2587{_R}{_DIM}=alto  "
+        f"{_G}\u2587{_R}{_DIM}=menor  "
+        f"{_YL}\u2587{_R}{_DIM}=medio  "
+        f"{_AM}\u2587{_R}{_DIM}=maior do historico  "
         f"{_RD}\u2500{_R}{_DIM}=offline{_R}",
         f"  {_AM}!! N instancias{_R}{_DIM} = multiplos processos server.py rodando "
         f"(reinicie o MCP){_R}",
@@ -412,7 +431,7 @@ def _sep(c="-"):
 
 def _header():
     now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    return f"  {_PU}{_BD}TypeMarkLee - MCP Monitor{_R}  {_DIM}{now}{_R}"
+    return f"  {_PU}{_BD}TypeShu - MCP Monitor{_R}  {_DIM}{now}{_R}"
 
 
 def _build(s: MCPStatus) -> list[str]:
@@ -454,14 +473,14 @@ def main():
         print("[ERRO] psutil nao instalado. Execute: pip install psutil")
         sys.exit(1)
 
-    sys.stdout.write("\033]0;monitor_mcp - TypeMarkLee\007")
+    sys.stdout.write("\033]0;monitor_mcp - TypeShu\007")
     sys.stdout.flush()
     os.system("cls" if sys.platform == "win32" else "clear")
 
     s = MCPStatus()
     threading.Thread(target=_poll, args=(s,), daemon=True).start()
 
-    print(f"\n  {_PU}{_BD}TypeMarkLee MCP Monitor{_R} - aguardando primeiro ping...")
+    print(f"\n  {_PU}{_BD}TypeShu MCP Monitor{_R} - aguardando primeiro ping...")
     print(f"  {_DIM}SQLite : {TELEM_DB}")
     print(f"  audit  : {AUDIT_FILE}{_R}")
     print()
