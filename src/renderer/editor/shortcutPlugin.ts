@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: cleanup-shortcuts | plano: 518fdbd9 | 2026-09-17 21:38:44
-// shortcutPlugin limpo, sem logs de debug
+// [mcp-local harness] feature: find-in-document | plano: 4556a48f | 2026-09-17 21:57:12
+// shortcutPlugin: adiciona Ctrl+F que suprime o find nativo e chama setFindOpener callback
 /**
  * shortcutPlugin.ts
  *
@@ -7,12 +7,9 @@
  *
  *   Ctrl+Shift+K  → insere code_block após o parágrafo atual
  *   Alt+Shift+5   → toggle strikethrough
+ *   Ctrl+F        → sinaliza abertura do FindBar (preventDefault para suprimir o find nativo do Electron)
  *
- * Registrado como $prose slice no MilkdownAdapter, antes do autoPairPlugin.
- *
- * Notas de compatibilidade Windows / teclado Logi:
- *   Alt+Shift+5 pode gerar key='Clear' (Numpad5 com NumLock) ou key='5'/'%'
- *   Ctrl+Shift+K gera key='K' (maiúsculo) — normalizado com toLowerCase()
+ * Registrado antes do autoPairPlugin no MilkdownAdapter.
  */
 
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
@@ -20,20 +17,23 @@ import type { EditorView } from 'prosemirror-view'
 
 const shortcutKey = new PluginKey('editorShortcuts')
 
+// Callback registrado externamente para abrir o FindBar
+let onOpenFind: (() => void) | null = null
+export function setFindOpener(fn: () => void) { onOpenFind = fn }
+
 function isStrikethrough(e: KeyboardEvent): boolean {
   if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return false
-  return (
-    e.key === '5'        ||
-    e.key === '%'        ||
-    e.key === 'Clear'    ||
-    e.code === 'Digit5'  ||
-    e.code === 'Numpad5'
-  )
+  return e.key === '5' || e.key === '%' || e.key === 'Clear' || e.code === 'Digit5' || e.code === 'Numpad5'
 }
 
 function isCodeFence(e: KeyboardEvent): boolean {
   if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return false
   return e.key.toLowerCase() === 'k'
+}
+
+function isFind(e: KeyboardEvent): boolean {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return false
+  return e.key.toLowerCase() === 'f'
 }
 
 function toggleStrikethrough(view: EditorView): boolean {
@@ -58,28 +58,14 @@ function toggleStrikethrough(view: EditorView): boolean {
 
 function insertCodeBlock(view: EditorView): boolean {
   const { state, dispatch } = view
-
-  const nodeType =
-    state.schema.nodes['code_block'] ??
-    state.schema.nodes['fence']      ??
-    state.schema.nodes['code']       ??
-    null
-
+  const nodeType = state.schema.nodes['code_block'] ?? state.schema.nodes['fence'] ?? state.schema.nodes['code'] ?? null
   if (!nodeType) return false
-
   const { $from } = state.selection
   if ($from.parent.type === nodeType) return false
-
-  // Insere o code_block logo após o nó atual (parágrafo, heading, etc.)
   const insertPos = $from.after()
   const node = nodeType.create({ language: '' })
   const tr = state.tr.insert(insertPos, node)
-
-  // Posiciona cursor dentro do bloco
-  try {
-    tr.setSelection(TextSelection.create(tr.doc, insertPos + 1))
-  } catch {}
-
+  try { tr.setSelection(TextSelection.create(tr.doc, insertPos + 1)) } catch {}
   dispatch(tr.scrollIntoView())
   view.focus()
   return true
@@ -91,12 +77,15 @@ export function createShortcutPlugin(): Plugin {
     props: {
       handleKeyDown(view: EditorView, event: KeyboardEvent): boolean {
         if (isStrikethrough(event)) {
-          event.preventDefault()
-          return toggleStrikethrough(view)
+          event.preventDefault(); return toggleStrikethrough(view)
         }
         if (isCodeFence(event)) {
+          event.preventDefault(); return insertCodeBlock(view)
+        }
+        if (isFind(event)) {
           event.preventDefault()
-          return insertCodeBlock(view)
+          onOpenFind?.()
+          return true
         }
         return false
       },

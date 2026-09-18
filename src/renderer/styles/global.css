@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: sidebar-file-ops | plano: b136dd71 | 2026-09-17 21:50:54
-// Adiciona estilos para ctx-menu, tree-rename-input, confirm-delete
-// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner, link dialog, sidebar file ops
+// [mcp-local harness] feature: find-css | plano: aacdbc8f | 2026-09-17 22:00:52
+// CSS com estilos FindBar e highlights find-match / find-match--current
+// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner, link dialog, sidebar file ops, find bar
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -18,6 +18,8 @@
   --border:       #e0e0e0;
   --selection:    #b3d4fc;
   --danger:       #e06c75;
+  --find-match:        #ffe066;
+  --find-match-current:#ff9500;
   --sidebar-w:    240px;
   --font-ui:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-editor:  'Georgia', 'Times New Roman', serif;
@@ -43,6 +45,8 @@
     --border:       #3c3c3c;
     --selection:    #264f78;
     --danger:       #f47174;
+    --find-match:        #7a6500;
+    --find-match-current:#c46a00;
   }
 }
 
@@ -76,97 +80,24 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .tree-icon { font-size: 10px; width: 12px; text-align: center; color: var(--text-muted); flex-shrink: 0; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-empty { font-size: 12px; color: var(--text-muted); padding: 4px 0; font-style: italic; }
-
-/* ── Rename input inline ───────────────────────────────────────────────── */
 .tree-item--renaming { background: color-mix(in srgb, var(--accent) 10%, transparent); cursor: default; }
-.tree-rename-input {
-  flex: 1;
-  background: var(--bg-editor);
-  border: 1px solid var(--accent);
-  border-radius: 3px;
-  color: var(--text);
-  font-size: 13px;
-  font-family: var(--font-ui);
-  padding: 1px 6px;
-  outline: none;
-  min-width: 0;
-  height: 20px;
-}
+.tree-rename-input { flex: 1; background: var(--bg-editor); border: 1px solid var(--accent); border-radius: 3px; color: var(--text); font-size: 13px; font-family: var(--font-ui); padding: 1px 6px; outline: none; min-width: 0; height: 20px; }
 
 /* ── Context Menu ──────────────────────────────────────────────────────── */
-.ctx-menu {
-  position: fixed;
-  z-index: 2000;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-  padding: 4px;
-  min-width: 160px;
-  font-size: 13px;
-}
-
-.ctx-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  background: none;
-  border: none;
-  border-radius: var(--radius);
-  color: var(--text);
-  cursor: pointer;
-  text-align: left;
-  font-size: 13px;
-  font-family: var(--font-ui);
-}
+.ctx-menu { position: fixed; z-index: 2000; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); padding: 4px; min-width: 160px; font-size: 13px; }
+.ctx-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; background: none; border: none; border-radius: var(--radius); color: var(--text); cursor: pointer; text-align: left; font-size: 13px; font-family: var(--font-ui); }
 .ctx-menu-item:hover { background: var(--border); }
 .ctx-menu-item--danger { color: var(--danger); }
 .ctx-menu-item--danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.ctx-menu-separator { height: 1px; background: var(--border); margin: 4px 0; }
 
-.ctx-menu-separator {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-/* ── Confirm Delete banner ─────────────────────────────────────────────── */
-.confirm-delete {
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--danger) 10%, var(--bg-sidebar));
-  border-bottom: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
-  flex-shrink: 0;
-}
-.confirm-delete-msg {
-  font-size: 12px;
-  color: var(--text);
-  margin-bottom: 8px;
-  line-height: 1.4;
-  word-break: break-word;
-}
-.confirm-delete-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-}
-.confirm-delete-btn {
-  padding: 4px 10px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-editor);
-  color: var(--text);
-  font-size: 12px;
-  cursor: pointer;
-  font-family: var(--font-ui);
-}
+/* ── Confirm Delete ────────────────────────────────────────────────────── */
+.confirm-delete { padding: 10px 12px; background: color-mix(in srgb, var(--danger) 10%, var(--bg-sidebar)); border-bottom: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); flex-shrink: 0; }
+.confirm-delete-msg { font-size: 12px; color: var(--text); margin-bottom: 8px; line-height: 1.4; word-break: break-word; }
+.confirm-delete-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.confirm-delete-btn { padding: 4px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-editor); color: var(--text); font-size: 12px; cursor: pointer; font-family: var(--font-ui); }
 .confirm-delete-btn:hover { border-color: var(--accent); }
-.confirm-delete-btn--danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-  font-weight: 600;
-}
+.confirm-delete-btn--danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
 .confirm-delete-btn--danger:hover { opacity: 0.85; }
 
 /* ── Outline Panel ─────────────────────────────────────────────────────── */
@@ -204,6 +135,88 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .ProseMirror th { background: var(--bg-sidebar); font-weight: 600; }
 .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
 .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-muted); pointer-events: none; float: left; height: 0; }
+
+/* ── Find highlights ───────────────────────────────────────────────────── */
+.find-match {
+  background: var(--find-match);
+  color: #1a1a1a;
+  border-radius: 2px;
+}
+.find-match--current {
+  background: var(--find-match-current);
+  color: #fff;
+  border-radius: 2px;
+  outline: 2px solid color-mix(in srgb, var(--find-match-current) 60%, transparent);
+}
+
+/* ── Find Bar ──────────────────────────────────────────────────────────── */
+.find-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+.find-bar-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  flex: 1;
+  min-width: 0;
+  transition: border-color 0.1s;
+}
+.find-bar-input-wrap:focus-within { border-color: var(--accent); }
+.find-bar-input-wrap--no-match { border-color: var(--danger); }
+
+.find-bar-icon { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+
+.find-bar-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  min-width: 0;
+}
+.find-bar-input::placeholder { color: var(--text-muted); }
+
+.find-bar-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.find-bar-count--no-match { color: var(--danger); }
+
+.find-bar-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 7px;
+  line-height: 1;
+  font-family: var(--font-ui);
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+.find-bar-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
+.find-bar-btn:disabled { opacity: 0.35; cursor: default; }
+.find-bar-btn--active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.find-bar-btn--case { font-weight: 700; font-size: 11px; letter-spacing: -0.03em; }
+.find-bar-btn--close { font-size: 11px; }
 
 /* ── Task List ─────────────────────────────────────────────────────────── */
 .ProseMirror ul[data-type="taskList"],.ProseMirror ul.task-list { list-style: none; padding-left: 0.25em; }
@@ -330,7 +343,7 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 /* ── Print / Export PDF ────────────────────────────────────────────────── */
 @media print {
   .app-shell { display: block; height: auto; overflow: visible; }
-  .sidebar, .status-bar, .front-matter-panel, .external-change-banner { display: none !important; }
+  .sidebar, .status-bar, .front-matter-panel, .external-change-banner, .find-bar { display: none !important; }
   .editor-area { height: auto; overflow: visible; }
   .milkdown-root { overflow: visible; padding: 0; height: auto; }
   .ProseMirror { max-width: 100%; padding-bottom: 0; }

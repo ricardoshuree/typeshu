@@ -1,13 +1,15 @@
-// [mcp-local harness] feature: sidebar-file-ops-app | plano: bbceaf9c | 2026-09-17 21:52:21
-// App.tsx: window.api com newFile/renameFile/deleteFile, callbacks onFileDelete/onFileRename passados ao Sidebar
-// App.tsx — sidebar com operações de arquivo (novo, renomear, deletar)
+// [mcp-local harness] feature: find-in-document | plano: 4556a48f | 2026-09-17 21:58:36
+// App.tsx com FindBar integrado, Ctrl+F, handleFindState, setFindOpener
+// App.tsx — com FindBar (Ctrl+F) integrado
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
+import { setFindOpener } from './editor/shortcutPlugin'
 import { Sidebar } from './components/Sidebar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
 import { GlobalSearch } from './components/GlobalSearch'
 import { LinkDialog } from './components/LinkDialog'
+import { FindBar } from './components/FindBar'
 import { IPC, NOTIFY } from '@shared/types'
 
 const AUTO_SAVE_INTERVAL = 30_000
@@ -20,6 +22,7 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 
 - Abra um arquivo com \`Ctrl+O\`
 - Busca rápida com \`Ctrl+P\`
+- Busca no documento com \`Ctrl+F\`
 - Busca em arquivos com \`Ctrl+Shift+F\`
 - Toggle sidebar com \`Ctrl+Shift+L\`
 - Salve com \`Ctrl+S\`
@@ -125,6 +128,10 @@ export default function App(): React.JSX.Element {
   const [externalChanged, setExternalChanged]         = useState(false)
   const [linkDialogVisible, setLinkDialogVisible]     = useState(false)
   const [linkInitialLabel, setLinkInitialLabel]       = useState('')
+  // Find state
+  const [findVisible, setFindVisible]   = useState(false)
+  const [findMatches, setFindMatches]   = useState(0)
+  const [findCurrent, setFindCurrent]   = useState(-1)
 
   const editorContentRef = useRef(WELCOME_MD)
   const filePathRef      = useRef<string | null>(null)
@@ -133,6 +140,38 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => { filePathRef.current = filePath }, [filePath])
   useEffect(() => { isDirtyRef.current = isDirty },   [isDirty])
+
+  // Registra o opener do FindBar no shortcutPlugin (Ctrl+F dentro do editor)
+  useEffect(() => {
+    setFindOpener(() => setFindVisible(true))
+    return () => setFindOpener(() => {})
+  }, [])
+
+  const openFind = useCallback(() => setFindVisible(true), [])
+
+  const closeFind = useCallback(() => {
+    setFindVisible(false)
+    editorRef.current?.clearFind()
+    setFindMatches(0); setFindCurrent(-1)
+  }, [])
+
+  const handleFindState = useCallback((matches: number, current: number) => {
+    setFindMatches(matches); setFindCurrent(current)
+    // Scroll automático ao match atual
+    setTimeout(() => editorRef.current?.scrollToCurrentMatch(), 0)
+  }, [])
+
+  const handleFind = useCallback((query: string, caseSensitive: boolean) => {
+    editorRef.current?.find(query, caseSensitive)
+  }, [])
+
+  const handleFindNext = useCallback(() => {
+    editorRef.current?.findNext()
+  }, [])
+
+  const handleFindPrev = useCallback(() => {
+    editorRef.current?.findPrev()
+  }, [])
 
   const loadFile = useCallback((path: string, content: string) => {
     const fm = extractFrontMatter(content)
@@ -156,7 +195,6 @@ export default function App(): React.JSX.Element {
 
   const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
 
-  // Se o arquivo aberto foi deletado → novo documento em branco
   const handleFileDelete = useCallback((deletedPath: string) => {
     if (deletedPath === filePathRef.current) {
       window.api.watchStop()
@@ -168,7 +206,6 @@ export default function App(): React.JSX.Element {
     }
   }, [])
 
-  // Se o arquivo aberto foi renomeado → atualiza filePath/fileName
   const handleFileRename = useCallback((oldPath: string, newPath: string) => {
     if (oldPath === filePathRef.current) {
       setFilePath(newPath)
@@ -208,13 +245,11 @@ export default function App(): React.JSX.Element {
 
   const openLinkDialog = useCallback(() => {
     const selected = editorRef.current?.getSelectedText() ?? ''
-    setLinkInitialLabel(selected)
-    setLinkDialogVisible(true)
+    setLinkInitialLabel(selected); setLinkDialogVisible(true)
   }, [])
 
   const handleLinkConfirm = useCallback((label: string, url: string) => {
-    const md = `[${label}](${url})`
-    editorRef.current?.replaceSelectionWith(md)
+    editorRef.current?.replaceSelectionWith(`[${label}](${url})`)
     setLinkDialogVisible(false)
   }, [])
 
@@ -282,11 +317,12 @@ export default function App(): React.JSX.Element {
     if (alt && shift && !ctrl && (code === 'Digit5' || code === 'Numpad5')) { e.preventDefault(); editorRef.current?.toggleStrikethrough(); return }
     if (ctrl && !shift && !alt && key === 'k') { e.preventDefault(); openLinkDialog(); return }
     if (ctrl && shift && !alt && key === 'k')  { e.preventDefault(); editorRef.current?.insertCodeFence(); return }
+    if (ctrl && !shift && !alt && key === 'f') { e.preventDefault(); openFind(); return }
     if (ctrl && !shift && !alt && key >= '1' && key <= '6') { e.preventDefault(); editorRef.current?.setHeading(Number(key) as 1|2|3|4|5|6); return }
     if (ctrl && shift && !alt && key === '0') { e.preventDefault(); editorRef.current?.setHeading(0); return }
     if (ctrl && !shift && !alt && key === '/') { e.preventDefault(); setSourceMode(v => !v); return }
     if (ctrl && shift && !alt && key === 'l')  { e.preventDefault(); setSidebarOpen(v => !v); return }
-  }, [openLinkDialog])
+  }, [openLinkDialog, openFind])
 
   const handleCaptureKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'F8')  { e.preventDefault(); e.stopPropagation(); setFocusMode(v => !v) }
@@ -297,11 +333,12 @@ export default function App(): React.JSX.Element {
       else document.exitFullscreen().catch(() => {})
     }
     if (e.key === 'Escape') {
-      if (linkDialogVisible)        { e.preventDefault(); e.stopPropagation(); setLinkDialogVisible(false) }
+      if (findVisible)              { e.preventDefault(); e.stopPropagation(); closeFind() }
+      else if (linkDialogVisible)   { e.preventDefault(); e.stopPropagation(); setLinkDialogVisible(false) }
       else if (quickOpenVisible)    { e.preventDefault(); e.stopPropagation(); setQuickOpenVisible(false) }
       else if (globalSearchVisible) { e.preventDefault(); e.stopPropagation(); setGlobalSearchVisible(false) }
     }
-  }, [linkDialogVisible, quickOpenVisible, globalSearchVisible])
+  }, [findVisible, linkDialogVisible, quickOpenVisible, globalSearchVisible, closeFind])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -325,17 +362,24 @@ export default function App(): React.JSX.Element {
           </div>
         ) : (
           <Sidebar
-            currentFilePath={filePath}
-            currentMarkdown={outlineMarkdown}
-            onFileOpen={loadFile}
-            onDirChange={handleDirChange}
-            onFileDelete={handleFileDelete}
-            onFileRename={handleFileRename}
+            currentFilePath={filePath} currentMarkdown={outlineMarkdown}
+            onFileOpen={loadFile} onDirChange={handleDirChange}
+            onFileDelete={handleFileDelete} onFileRename={handleFileRename}
           />
         )
       )}
       <div className="editor-area">
         {externalChanged && <ExternalChangeBanner onReload={handleReloadExternal} onDismiss={() => setExternalChanged(false)} />}
+        {findVisible && (
+          <FindBar
+            onFind={handleFind}
+            onNext={handleFindNext}
+            onPrev={handleFindPrev}
+            onClose={closeFind}
+            matchCount={findMatches}
+            currentMatch={findCurrent}
+          />
+        )}
         {sourceMode ? (
           <textarea
             className="source-editor"
@@ -347,7 +391,14 @@ export default function App(): React.JSX.Element {
         ) : (
           <div className="milkdown-root">
             {frontMatter !== null && <FrontMatterPanel content={frontMatter} />}
-            <MilkdownAdapter key={editorKey} initialContent={initialContent} editorRef={editorRef} onKeyDown={handleKeyDown} onChange={handleChange} />
+            <MilkdownAdapter
+              key={editorKey}
+              initialContent={initialContent}
+              editorRef={editorRef}
+              onKeyDown={handleKeyDown}
+              onChange={handleChange}
+              onFindState={handleFindState}
+            />
           </div>
         )}
         <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
