@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-root-fix | plano: 90ec1132 | 2026-09-18
-// Fix A: rootDirPath imutável — sidebar não re-aponta raiz ao mudar currentFilePath
+// [mcp-local harness] feature: sidebar-refresh-fix | plano: f56a9b6d | 2026-09-18
+// Fix: TreeNode recarrega filhos quando refreshKey muda (após move/delete/rename)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { FileEntry, DirListResult, RecentFile } from '@shared/types'
 
@@ -36,6 +36,8 @@ interface DragState {
   entry:      FileEntry | null
   targetPath: string | null
 }
+
+const HOVER_EXPAND_DELAY = 600
 
 function IconFolder({ open }: { open: boolean }) {
   return open ? (
@@ -125,7 +127,7 @@ function InlineInput({ initialValue, placeholder, selectUpToLastDot, paddingLeft
 
 type CreatingInDir = { parentPath: string; type: 'file' | 'dir' }
 
-function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renamingPath, onRenameConfirm, onRenameCancel, depth, sortMode, creatingInDir, onNewFileConfirm, onNewDirConfirm, onNewCancel, dragState, onDragStart, onDrop, onDragEnd }: {
+function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renamingPath, onRenameConfirm, onRenameCancel, depth, sortMode, creatingInDir, onNewFileConfirm, onNewDirConfirm, onNewCancel, dragState, onDragStart, onDrop, onDragEnd, refreshKey }: {
   entry: FileEntry; currentFilePath: string | null
   onFileClick: (e: FileEntry) => void; onContextMenu: (ev: React.MouseEvent, e: FileEntry) => void
   renamingPath: string | null; onRenameConfirm: (e: FileEntry, n: string) => void; onRenameCancel: () => void
@@ -138,10 +140,12 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
   onDragStart: (entry: FileEntry, ev: React.DragEvent) => void
   onDrop:      (targetEntry: FileEntry) => void
   onDragEnd:   () => void
+  refreshKey:  number
 }): React.JSX.Element {
   const [expanded, setExpanded]         = useState(false)
   const [children, setChildren]         = useState<FileEntry[]>([])
   const [isDropTarget, setIsDropTarget] = useState(false)
+  const hoverTimerRef                   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isActive   = entry.path === currentFilePath
   const isRenaming = renamingPath === entry.path
   const isDragging = dragState.current.entry?.path === entry.path
@@ -157,17 +161,29 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
     return [...sort(dirs), ...sort(files)]
   }, [sortMode])
 
-  useEffect(() => { if (creatingInDir?.parentPath === entry.path && !expanded) setExpanded(true) }, [creatingInDir, entry.path, expanded])
+  useEffect(() => {
+    if (creatingInDir?.parentPath === entry.path && !expanded) setExpanded(true)
+  }, [creatingInDir, entry.path, expanded])
 
   const loadChildren = useCallback(async () => {
     const result = await window.api.listDir(entry.path)
     if (result.success && result.entries) setChildren(result.entries)
   }, [entry.path])
 
+  // Recarrega filhos quando refreshKey muda e o nó está expandido
+  useEffect(() => {
+    if (expanded) loadChildren()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey])
+
   const handleClick = async () => {
     if (isRenaming) return
     if (entry.isDirectory) { if (!expanded) await loadChildren(); setExpanded(v => !v) }
     else { onFileClick(entry) }
+  }
+
+  const clearHoverTimer = () => {
+    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
   }
 
   const getDropDir = (): string =>
@@ -186,15 +202,25 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation()
-    if (isValidDropTarget()) { e.dataTransfer.dropEffect = 'move'; setIsDropTarget(true) }
-    else { e.dataTransfer.dropEffect = 'none'; setIsDropTarget(false) }
+    if (!isValidDropTarget()) { e.dataTransfer.dropEffect = 'none'; setIsDropTarget(false); clearHoverTimer(); return }
+    e.dataTransfer.dropEffect = 'move'
+    setIsDropTarget(true)
+    if (entry.isDirectory && !expanded && !hoverTimerRef.current) {
+      hoverTimerRef.current = setTimeout(async () => {
+        hoverTimerRef.current = null
+        await loadChildren()
+        setExpanded(true)
+      }, HOVER_EXPAND_DELAY)
+    }
   }
 
-  const handleDragLeave = (e: React.DragEvent) => { e.stopPropagation(); setIsDropTarget(false) }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation(); setIsDropTarget(false); clearHoverTimer()
+  }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation()
-    setIsDropTarget(false)
+    setIsDropTarget(false); clearHoverTimer()
     if (!isValidDropTarget()) return
     onDrop(entry)
   }
@@ -228,7 +254,7 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onDragEnd={() => { setIsDropTarget(false); onDragEnd() }}
+        onDragEnd={() => { setIsDropTarget(false); clearHoverTimer(); onDragEnd() }}
         title={entry.path}
       >
         <span style={{ width: 10, fontSize: 9, color: 'var(--text-muted)', flexShrink: 0, textAlign: 'center' }}>
@@ -255,6 +281,7 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
               depth={depth + 1} sortMode={sortMode}
               creatingInDir={creatingInDir} onNewFileConfirm={onNewFileConfirm} onNewDirConfirm={onNewDirConfirm} onNewCancel={onNewCancel}
               dragState={dragState} onDragStart={onDragStart} onDrop={onDrop} onDragEnd={onDragEnd}
+              refreshKey={refreshKey}
             />
           ))}
           {children.length === 0 && !showCreatingInside && (
@@ -355,11 +382,9 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
   const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null)
   const [creatingRoot, setCreatingRoot]   = useState<'file' | 'dir' | null>(null)
   const [creatingInDir, setCreatingInDir] = useState<CreatingInDir | null>(null)
-
-  // rootDirPath: raiz escolhida pelo usuário — nunca muda por causa do currentFilePath
-  const rootDirPathRef = useRef<string | null>(null)
+  const [refreshKey, setRefreshKey]       = useState(0)  // incrementa após qualquer op de filesystem
+  const rootDirPathRef  = useRef<string | null>(null)
   const [rootDirName, setRootDirName]   = useState<string>('Nenhuma pasta')
-
   const dragState   = useRef<DragState>({ entry: null, targetPath: null })
   const [, forceUpdate] = useState(0)
 
@@ -374,7 +399,6 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
     return [...sort(dirs), ...sort(files)]
   }, [sortMode])
 
-  // Aplica uma nova raiz explicitamente escolhida pelo usuário (openDir ou primeiro arquivo)
   const applyRoot = useCallback((path: string, ents: FileEntry[]) => {
     rootDirPathRef.current = path
     setEntries(ents)
@@ -382,16 +406,19 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
     onDirChange(path)
   }, [onDirChange])
 
+  // refreshRoot: recarrega raiz E dispara refreshKey para que TreeNodes expandidos também recarreguem
   const refreshRoot = useCallback(async () => {
     const root = rootDirPathRef.current; if (!root) return
     const result = await window.api.listDir(root)
-    if (result.success && result.entries) setEntries(result.entries)
+    if (result.success && result.entries) {
+      setEntries(result.entries)
+      setRefreshKey(k => k + 1)  // propaga para todos os TreeNodes expandidos
+    }
   }, [])
 
-  // Quando currentFilePath muda, atualiza a raiz SOMENTE se ainda não há raiz definida
   useEffect(() => {
     if (!currentFilePath) return
-    if (rootDirPathRef.current) return   // raiz já definida — não sobrescreve
+    if (rootDirPathRef.current) return
     const dir = currentFilePath.replace(/[\\/][^\\/]+$/, '')
     window.api.listDir(dir).then(result => {
       if (result.success && result.entries) applyRoot(dir, result.entries)
@@ -548,6 +575,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
                   depth={0} sortMode={sortMode}
                   creatingInDir={creatingInDir} onNewFileConfirm={handleNewFileInDir} onNewDirConfirm={handleNewDirInDir} onNewCancel={() => setCreatingInDir(null)}
                   dragState={dragState} onDragStart={handleDragStart} onDrop={handleDrop} onDragEnd={handleDragEnd}
+                  refreshKey={refreshKey}
                 />
               ))}
             </>

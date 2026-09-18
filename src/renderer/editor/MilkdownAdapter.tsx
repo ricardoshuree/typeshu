@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: list-toggle-fix2 | plano: 3310a28e | 2026-09-18
-// Fix definitivo toggle lista: closure booleana coordena lift XOR callCommand
+// [mcp-local harness] feature: drag-hover-expand-blockquote-toggle | plano: c0fc2e6b | 2026-09-18
+// Bug 2: toggleBlockquote faz unwrap quando cursor já está num blockquote
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -20,6 +20,7 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { callCommand, $prose } from '@milkdown/utils'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { liftListItem } from 'prosemirror-schema-list'
+import { lift } from 'prosemirror-commands'
 import type { EditorView } from 'prosemirror-view'
 import { createAutoPairPlugin }    from './autoPairPlugin'
 import { createTaskListPlugin }    from './taskListPlugin'
@@ -103,13 +104,13 @@ function doInsertCodeFence(ctx: Ctx, lang = '') {
   } catch (e) { console.warn('insertCodeFence error:', e) }
 }
 
-// ── Helpers de lista ──────────────────────────────────────────────────────
-function isInListType(view: EditorView, listTypeName: string): boolean {
-  const listType = view.state.schema.nodes[listTypeName]
-  if (!listType) return false
+// ── Helpers de node block ─────────────────────────────────────────────────
+function isInNodeType(view: EditorView, nodeTypeName: string): boolean {
+  const nodeType = view.state.schema.nodes[nodeTypeName]
+  if (!nodeType) return false
   const { $from } = view.state.selection
   for (let d = $from.depth; d >= 0; d--) {
-    if ($from.node(d).type === listType) return true
+    if ($from.node(d).type === nodeType) return true
   }
   return false
 }
@@ -247,33 +248,39 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
     toggleItalic:        () => { const e = get(); if (e) e.action(ctx => toggleMark('emphasis', ctx)) },
     toggleStrikethrough: () => { const e = get(); if (e) e.action(ctx => toggleMark('strike_through', ctx)) },
 
+    // ── Blockquote toggle ─────────────────────────────────────────────────
     toggleBlockquote: () => {
       const e = get(); if (!e) return
-      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
-      e.action(callCommand(wrapInBlockquoteCommand.key))
+      let wasInBlockquote = false
+      e.action((ctx) => {
+        const view = getView(ctx); if (!view) return
+        if (!view.hasFocus()) view.focus()
+        wasInBlockquote = isInNodeType(view, 'blockquote')
+        if (wasInBlockquote) {
+          // lift: sobe o conteúdo para fora do blockquote
+          lift(view.state, view.dispatch)
+          view.focus()
+        }
+      })
+      if (!wasInBlockquote) {
+        e.action(callCommand(wrapInBlockquoteCommand.key))
+      }
     },
 
-    // ── Toggle lista — padrão: closure booleana coordena duas actions ──────
+    // ── Toggle lista — closure booleana coordena lift XOR wrap ────────────
     toggleBulletList: () => {
       const e = get(); if (!e) return
-      // Passo 1: captura o estado atual e executa lift se necessário
       let wasInList = false
       e.action((ctx) => {
         const view = getView(ctx); if (!view) return
         if (!view.hasFocus()) view.focus()
-        wasInList = isInListType(view, 'bullet_list')
+        wasInList = isInNodeType(view, 'bullet_list')
         if (wasInList) {
           const itemType = view.state.schema.nodes['list_item']
-          if (itemType) {
-            liftListItem(itemType)(view.state, view.dispatch)
-            view.focus()
-          }
+          if (itemType) { liftListItem(itemType)(view.state, view.dispatch); view.focus() }
         }
       })
-      // Passo 2: wrap — só tem efeito se não estava na lista (callCommand é no-op se inaplicável)
-      if (!wasInList) {
-        e.action(callCommand(wrapInBulletListCommand.key))
-      }
+      if (!wasInList) e.action(callCommand(wrapInBulletListCommand.key))
     },
 
     toggleOrderedList: () => {
@@ -282,18 +289,13 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       e.action((ctx) => {
         const view = getView(ctx); if (!view) return
         if (!view.hasFocus()) view.focus()
-        wasInList = isInListType(view, 'ordered_list')
+        wasInList = isInNodeType(view, 'ordered_list')
         if (wasInList) {
           const itemType = view.state.schema.nodes['list_item']
-          if (itemType) {
-            liftListItem(itemType)(view.state, view.dispatch)
-            view.focus()
-          }
+          if (itemType) { liftListItem(itemType)(view.state, view.dispatch); view.focus() }
         }
       })
-      if (!wasInList) {
-        e.action(callCommand(wrapInOrderedListCommand.key))
-      }
+      if (!wasInList) e.action(callCommand(wrapInOrderedListCommand.key))
     },
 
     insertTable: () => {
