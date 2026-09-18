@@ -4,7 +4,7 @@
 
 Interface limpa onde o que você digita é renderizado instantaneamente. Sem modo de preview separado: você escreve e vê o resultado ao mesmo tempo.
 
-![TypeShu](https://img.shields.io/badge/Electron-32.x-blue) ![TypeShu](https://img.shields.io/badge/Milkdown-v7-green) ![TypeShu](https://img.shields.io/badge/TypeScript-5.x-blue)
+![TypeShu](https://img.shields.io/badge/Electron-32.x-blue) ![TypeShu](https://img.shields.io/badge/TypeScript-5.x-blue)![TypeShu](https://img.shields.io/badge/Milkdown-v7-green)
 
 ***
 
@@ -188,6 +188,3 @@ src/
 * lista 1
 * lista 2
 * lista 3
-
-<br />
-

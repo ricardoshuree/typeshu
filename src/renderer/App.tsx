@@ -1,5 +1,3 @@
-// [mcp-local harness] feature: activity-bar-settings | plano: cf094fd7 | 2026-09-18
-// +onPrefs na ActivityBar; remove onPrefs do Toolbar (gear migrou)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { setFindOpener, setReplaceOpener } from './editor/shortcutPlugin'
@@ -7,6 +5,7 @@ import { Sidebar } from './components/Sidebar'
 import { Toolbar } from './components/Toolbar'
 import { TitleBar } from './components/TitleBar'
 import { ActivityBar } from './components/ActivityBar'
+import { TabBar } from './components/TabBar'
 import { FloatingToolbar } from './components/FloatingToolbar'
 import { FrontMatterPanel, extractFrontMatter } from './components/FrontMatterPanel'
 import { QuickOpen } from './components/QuickOpen'
@@ -14,7 +13,7 @@ import { GlobalSearch } from './components/GlobalSearch'
 import { LinkDialog } from './components/LinkDialog'
 import { FindBar } from './components/FindBar'
 import { PrefsPanel } from './components/PrefsPanel'
-import { IPC, NOTIFY, DEFAULT_PREFERENCES, type UserPreferences, type RecentFile } from '@shared/types'
+import { IPC, NOTIFY, DEFAULT_PREFERENCES, type UserPreferences, type RecentFile, type TabState } from '@shared/types'
 
 const AUTO_SAVE_INTERVAL_DEFAULT = 30_000
 
@@ -88,6 +87,14 @@ function countWords(t: string) { return t.trim() === '' ? 0 : t.trim().split(/\s
 function countChars(t: string) { return t.replace(/\r\n/g, '\n').length }
 function readingTime(w: number) { const m = Math.ceil(w / 200); return m <= 1 ? '< 1 min' : `${m} min` }
 
+function makeId(): string {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+}
+
+function makeUntitledTab(): TabState {
+  return { id: makeId(), filePath: null, content: '', isDirty: false, scrollTop: 0 }
+}
+
 interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean; autoSaved: boolean }
 function StatusBar({ content, filePath, isDirty, autoSaved }: StatusBarProps): React.JSX.Element {
   const words = countWords(content); const chars = countChars(content); const time = readingTime(words)
@@ -130,11 +137,12 @@ th{background:#f3f3f3;font-weight:600}a{color:#4a90d9}del{text-decoration:line-t
 }
 
 export default function App(): React.JSX.Element {
-  const [initialContent, setInitialContent]           = useState(WELCOME_MD)
-  const [editorKey, setEditorKey]                     = useState(0)
-  const [filePath, setFilePath]                       = useState<string | null>(null)
-  const [isDirty, setIsDirty]                         = useState(false)
-  const [fileName, setFileName]                       = useState('Sem título')
+  const initialTab = makeUntitledTab()
+  const [tabs, setTabs]               = useState<TabState[]>([initialTab])
+  const [activeTabId, setActiveTabId] = useState<string>(initialTab.id)
+  const [editorKey, setEditorKey]     = useState(0)
+  const [initialContent, setInitialContent] = useState(WELCOME_MD)
+
   const [sidebarOpen, setSidebarOpen]                 = useState(false)
   const [focusMode, setFocusMode]                     = useState(false)
   const [typewriterMode, setTypewriterMode]           = useState(false)
@@ -157,15 +165,41 @@ export default function App(): React.JSX.Element {
   const [prefsVisible, setPrefsVisible]               = useState(false)
   const [recentFiles, setRecentFiles]                 = useState<RecentFile[]>([])
 
-  const editorContentRef     = useRef(WELCOME_MD)
-  const filePathRef          = useRef<string | null>(null)
-  const isDirtyRef           = useRef(false)
-  const autoSaveIntervalRef  = useRef(AUTO_SAVE_INTERVAL_DEFAULT)
-  const editorRef            = useRef<EditorHandle>(null)
+  const tabsRef             = useRef<TabState[]>([initialTab])
+  const activeTabIdRef      = useRef<string>(initialTab.id)
+  const editorContentRef    = useRef<string>('')
+  const autoSaveIntervalRef = useRef(AUTO_SAVE_INTERVAL_DEFAULT)
+  const editorRef           = useRef<EditorHandle>(null)
   const milkdownContainerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { filePathRef.current = filePath }, [filePath])
-  useEffect(() => { isDirtyRef.current = isDirty },   [isDirty])
+  useEffect(() => { tabsRef.current = tabs },               [tabs])
+  useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
+
+  function getActiveTab(): TabState | undefined {
+    return tabsRef.current.find(t => t.id === activeTabIdRef.current)
+  }
+
+  function captureScroll(): number {
+    const el = milkdownContainerRef.current
+    return el ? el.scrollTop : 0
+  }
+
+  function mountTab(tab: TabState) {
+    const fm = extractFrontMatter(tab.content)
+    const editorMd = fm ? fm.body : tab.content
+    editorContentRef.current = tab.content
+    setInitialContent(editorMd || '')
+    setEditorKey(k => k + 1)
+    setFrontMatter(fm ? fm.content : null)
+    setOutlineMarkdown(editorMd || '')
+    setWordCountContent(tab.content)
+    setSourceMode(false)
+    setExternalChanged(false)
+    setAutoSaved(false)
+    setTimeout(() => {
+      if (milkdownContainerRef.current) milkdownContainerRef.current.scrollTop = tab.scrollTop
+    }, 80)
+  }
 
   useEffect(() => {
     window.api.getPrefs().then(p => {
@@ -211,51 +245,195 @@ export default function App(): React.JSX.Element {
   const handleReplaceOne = useCallback((r: string) => editorRef.current?.replaceOne(r), [])
   const handleReplaceAll = useCallback((r: string) => editorRef.current?.replaceAll(r), [])
 
-  const loadFile = useCallback(async (path: string, content: string) => {
-    const fm = extractFrontMatter(content); const editorMd = fm ? fm.body : content
-    editorContentRef.current = content
-    setInitialContent(editorMd); setEditorKey(k => k + 1)
-    setFilePath(path); setFileName(path.split(/[\\/]/).pop() ?? path)
-    setIsDirty(false); setSourceMode(false)
-    setWordCountContent(content); setFrontMatter(fm ? fm.content : null); setOutlineMarkdown(editorMd)
-    setCurrentDirPath(path.replace(/[\\/][^\\/]+$/, ''))
-    setExternalChanged(false); setAutoSaved(false)
+  const openInTab = useCallback(async (path: string, content: string) => {
+    const existing = tabsRef.current.find(t => t.filePath === path)
+    if (existing) {
+      const scroll = captureScroll()
+      setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, scrollTop: scroll } : t))
+      setActiveTabId(existing.id)
+      activeTabIdRef.current = existing.id
+      mountTab(existing)
+      return
+    }
+    const scroll = captureScroll()
+    const newTab: TabState = { id: makeId(), filePath: path, content, isDirty: false, scrollTop: 0 }
+    setTabs(prev => {
+      const updated = prev.map(t => t.id === activeTabIdRef.current ? { ...t, scrollTop: scroll } : t)
+      return [...updated, newTab]
+    })
+    setActiveTabId(newTab.id)
+    activeTabIdRef.current = newTab.id
+    window.api.watchStop()
     window.api.watchStart(path)
     const updated = await window.api.addRecent(path)
     setRecentFiles(updated)
+    mountTab(newTab)
+    setCurrentDirPath(path.replace(/[\\/][^\\/]+$/, ''))
+  }, [])
+
+  const switchTab = useCallback((id: string) => {
+    if (id === activeTabIdRef.current) return
+    const scroll = captureScroll()
+    setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, scrollTop: scroll } : t))
+    setActiveTabId(id)
+    activeTabIdRef.current = id
+    const tab = tabsRef.current.find(t => t.id === id)
+    if (tab) {
+      mountTab(tab)
+      if (tab.filePath) {
+        window.api.watchStop()
+        window.api.watchStart(tab.filePath)
+        setCurrentDirPath(tab.filePath.replace(/[\\/][^\\/]+$/, ''))
+      }
+    }
+  }, [])
+
+  const closeTab = useCallback((id: string) => {
+    const target = tabsRef.current.find(t => t.id === id)
+    if (!target) return
+
+    const doClose = () => {
+      setTabs(prev => {
+        const remaining = prev.filter(t => t.id !== id)
+        if (activeTabIdRef.current === id) {
+          if (remaining.length === 0) {
+            const blank = makeUntitledTab()
+            setActiveTabId(blank.id)
+            activeTabIdRef.current = blank.id
+            mountTab(blank)
+            return [blank]
+          }
+          const idx = prev.findIndex(t => t.id === id)
+          const next = remaining[Math.max(0, idx - 1)]
+          setActiveTabId(next.id)
+          activeTabIdRef.current = next.id
+          mountTab(next)
+          if (next.filePath) {
+            window.api.watchStop()
+            window.api.watchStart(next.filePath)
+          } else {
+            window.api.watchStop()
+          }
+        }
+        return remaining
+      })
+    }
+
+    if (target.isDirty) {
+      const name = target.filePath ? target.filePath.split(/[\\/]/).pop() : 'Untitled'
+      const save = confirm(`"${name}" tem alterações não salvas.\nSalvar antes de fechar?`)
+      if (save) {
+        if (target.filePath) {
+          window.api.saveFile(target.filePath, target.content).then(r => { if (r.success) doClose() })
+        } else {
+          window.api.saveFileAs(target.content).then(r => { if (r.success) doClose() })
+        }
+      } else {
+        doClose()
+      }
+    } else {
+      doClose()
+    }
+  }, [])
+
+  const reorderTabs = useCallback((fromIndex: number, toIndex: number) => {
+    setTabs(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
+    })
+  }, [])
+
+  const openNewTab = useCallback(() => {
+    const scroll = captureScroll()
+    setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, scrollTop: scroll } : t))
+    const blank = makeUntitledTab()
+    setTabs(prev => [...prev, blank])
+    setActiveTabId(blank.id)
+    activeTabIdRef.current = blank.id
+    mountTab(blank)
+    window.api.watchStop()
   }, [])
 
   const handleChange = useCallback((md: string) => {
     const fm = extractFrontMatter(editorContentRef.current)
     const full = fm ? `---\n${fm.content}\n---\n${md}` : md
     editorContentRef.current = full
-    setIsDirty(true); setWordCountContent(full); setOutlineMarkdown(md); setAutoSaved(false)
+    setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, content: full, isDirty: true } : t))
+    setWordCountContent(full)
+    setOutlineMarkdown(md)
+    setAutoSaved(false)
   }, [])
 
-  const handleDirChange  = useCallback((dir: string) => setCurrentDirPath(dir), [])
+  const handleDirChange = useCallback((dir: string) => setCurrentDirPath(dir), [])
 
   const handleFileDelete = useCallback((deletedPath: string) => {
-    if (deletedPath === filePathRef.current) {
-      window.api.watchStop(); editorContentRef.current = ''
-      setInitialContent(''); setEditorKey(k => k + 1)
-      setFilePath(null); setFileName('Sem título')
-      setIsDirty(false); setFrontMatter(null); setOutlineMarkdown('')
-      setWordCountContent(''); setAutoSaved(false); setExternalChanged(false)
+    const tab = tabsRef.current.find(t => t.filePath === deletedPath)
+    if (tab) {
+      setTabs(prev => {
+        const remaining = prev.filter(t => t.filePath !== deletedPath)
+        if (activeTabIdRef.current === tab.id) {
+          if (remaining.length === 0) {
+            const blank = makeUntitledTab()
+            setActiveTabId(blank.id)
+            activeTabIdRef.current = blank.id
+            mountTab(blank)
+            return [blank]
+          }
+          const idx = prev.findIndex(t => t.id === tab.id)
+          const next = remaining[Math.max(0, idx - 1)]
+          setActiveTabId(next.id)
+          activeTabIdRef.current = next.id
+          mountTab(next)
+        }
+        return remaining
+      })
+      window.api.watchStop()
     }
   }, [])
 
   const handleFileRename = useCallback((oldPath: string, newPath: string) => {
-    if (oldPath === filePathRef.current) {
-      setFilePath(newPath); setFileName(newPath.split(/[\\/]/).pop() ?? newPath)
-      window.api.watchStart(newPath)
+    setTabs(prev => prev.map(t => t.filePath === oldPath ? { ...t, filePath: newPath } : t))
+    const active = getActiveTab()
+    if (active?.filePath === oldPath) window.api.watchStart(newPath)
+  }, [])
+
+  const handleSaveAs = useCallback(async () => {
+    const r = await window.api.saveFileAs(editorContentRef.current)
+    if (r.success && r.path) {
+      const path = r.path
+      setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, filePath: path, isDirty: false } : t))
+      window.api.watchStart(path)
+      setAutoSaved(true); setTimeout(() => setAutoSaved(false), 2000)
     }
   }, [])
 
+  const handleSave = useCallback(async () => {
+    const tab = getActiveTab()
+    if (!tab) return
+    if (!tab.filePath) return handleSaveAs()
+    const r = await window.api.saveFile(tab.filePath, editorContentRef.current)
+    if (r.success) {
+      setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, isDirty: false } : t))
+      setAutoSaved(true); setTimeout(() => setAutoSaved(false), 2000)
+    }
+  }, [handleSaveAs])
+
   useEffect(() => {
     const timer = setInterval(async () => {
-      if (!isDirtyRef.current || !filePathRef.current) return
-      const r = await window.api.saveFile(filePathRef.current, editorContentRef.current)
-      if (r.success) { setIsDirty(false); setAutoSaved(true); setTimeout(() => setAutoSaved(false), 3000) }
+      if (!prefs.autoSave) return
+      const dirtyTabs = tabsRef.current.filter(t => t.isDirty && t.filePath)
+      for (const t of dirtyTabs) {
+        const content = t.id === activeTabIdRef.current ? editorContentRef.current : t.content
+        const r = await window.api.saveFile(t.filePath!, content)
+        if (r.success) {
+          setTabs(prev => prev.map(tab => tab.id === t.id ? { ...tab, isDirty: false } : tab))
+          if (t.id === activeTabIdRef.current) {
+            setAutoSaved(true); setTimeout(() => setAutoSaved(false), 3000)
+          }
+        }
+      }
     }, autoSaveIntervalRef.current)
     return () => clearInterval(timer)
   }, [prefs.autoSave, prefs.autoSaveInterval])
@@ -266,19 +444,30 @@ export default function App(): React.JSX.Element {
   }, [])
 
   const handleReloadExternal = useCallback(async () => {
-    if (!filePathRef.current) return
-    const r = await window.api.openPath(filePathRef.current)
-    if (r.success && r.content !== undefined && r.path) loadFile(r.path, r.content)
+    const tab = getActiveTab()
+    if (!tab?.filePath) return
+    const r = await window.api.openPath(tab.filePath)
+    if (r.success && r.content !== undefined && r.path) {
+      const content = r.content
+      setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, content, isDirty: false } : t))
+      const fm = extractFrontMatter(content)
+      editorContentRef.current = content
+      setInitialContent(fm ? fm.body : content)
+      setEditorKey(k => k + 1)
+      setFrontMatter(fm ? fm.content : null)
+      setOutlineMarkdown(fm ? fm.body : content)
+      setWordCountContent(content)
+    }
     setExternalChanged(false)
-  }, [loadFile])
+  }, [])
 
   useEffect(() => {
     window.api.on('file:opened', (...args: unknown[]) => {
       const r = args[0] as { success: boolean; path?: string; content?: string }
-      if (r.success && r.content !== undefined && r.path) loadFile(r.path, r.content)
+      if (r.success && r.content !== undefined && r.path) openInTab(r.path, r.content)
     })
     return () => window.api.removeAllListeners('file:opened')
-  }, [loadFile])
+  }, [openInTab])
 
   useEffect(() => {
     window.api.on('recent:open', async (...args: unknown[]) => {
@@ -296,6 +485,13 @@ export default function App(): React.JSX.Element {
     return () => window.api.removeAllListeners(NOTIFY.RECENT_CHANGED)
   }, [])
 
+  useEffect(() => {
+    window.api.on(IPC.FILE_SAVE,    () => handleSave())
+    window.api.on(IPC.FILE_SAVE_AS, () => handleSaveAs())
+    window.api.on(IPC.FILE_NEW,     () => openNewTab())
+    return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
+  }, [handleSave, handleSaveAs, openNewTab])
+
   const openLinkDialog = useCallback(() => {
     const selected = editorRef.current?.getSelectedText() ?? ''
     setLinkInitialLabel(selected); setLinkDialogVisible(true)
@@ -310,37 +506,18 @@ export default function App(): React.JSX.Element {
     editorRef.current?.replaceSelectionWith(sel ? `\`${sel}\`` : '``')
   }, [])
 
-  const handleSaveAs = useCallback(async () => {
-    const r = await window.api.saveFileAs(editorContentRef.current)
-    if (r.success && r.path) {
-      setFilePath(r.path); setFileName(r.path.split(/[\\/]/).pop() ?? r.path); setIsDirty(false)
-      window.api.watchStart(r.path)
-    }
-  }, [])
-
-  const handleSave = useCallback(async () => {
-    if (!filePath) return handleSaveAs()
-    const r = await window.api.saveFile(filePath, editorContentRef.current)
-    if (r.success) { setIsDirty(false); setAutoSaved(true); setTimeout(() => setAutoSaved(false), 2000) }
-  }, [filePath, handleSaveAs])
-
-  const handleNew = useCallback(() => {
-    window.api.watchStop(); editorContentRef.current = ''
-    setInitialContent(''); setEditorKey(k => k + 1); setFilePath(null); setFileName('Sem título')
-    setIsDirty(false); setSourceMode(false); setWordCountContent('')
-    setFrontMatter(null); setOutlineMarkdown(''); setExternalChanged(false); setAutoSaved(false)
-  }, [])
-
   const handleTitleBarAction = useCallback((action: string, payload?: unknown) => {
+    const activeTab = getActiveTab()
     switch (action) {
-      case 'file:new':          handleNew(); break
-      case 'file:open':         window.api.openFile().then(r => { if (r.success && r.path && r.content !== undefined) loadFile(r.path, r.content) }); break
+      case 'file:new':          openNewTab(); break
+      case 'tab:close':         closeTab(activeTabIdRef.current); break
+      case 'file:open':         window.api.openFile().then(r => { if (r.success && r.path && r.content !== undefined) openInTab(r.path, r.content) }); break
       case 'file:save':         handleSave(); break
       case 'file:save-as':      handleSaveAs(); break
       case 'ui:open-quickly':   setQuickOpenVisible(true); break
       case 'ui:global-search':  setGlobalSearchVisible(true); setSidebarOpen(true); break
       case 'ui:export-pdf':     window.print(); break
-      case 'ui:export-html':    exportHTML(fileName); break
+      case 'ui:export-html':    exportHTML(activeTab?.filePath?.split(/[\\/]/).pop() ?? 'documento'); break
       case 'ui:preferences':    setPrefsVisible(true); break
       case 'ui:find':           openFind(); break
       case 'ui:replace':        openReplace(); break
@@ -377,7 +554,7 @@ export default function App(): React.JSX.Element {
       case 'edit:paste':      document.execCommand('paste'); break
       case 'edit:select-all': document.execCommand('selectAll'); break
     }
-  }, [handleNew, handleSave, handleSaveAs, loadFile, openFind, openReplace, openLinkDialog, fileName])
+  }, [openNewTab, closeTab, openInTab, handleSave, handleSaveAs, openFind, openReplace, openLinkDialog])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey; const shift = e.shiftKey; const alt = e.altKey
@@ -399,12 +576,27 @@ export default function App(): React.JSX.Element {
     if (ctrl && shift && !alt && key === '0') { e.preventDefault(); editorRef.current?.setHeading(0); return }
     if (ctrl && !shift && !alt && key === '/') { e.preventDefault(); setSourceMode(v => !v); return }
     if (ctrl && shift && !alt && key === 'l')  { e.preventDefault(); setSidebarOpen(v => !v); return }
-    if (ctrl && !shift && !alt && key === 'n') { e.preventDefault(); handleNew(); return }
     if (ctrl && !shift && !alt && key === 'r') { e.preventDefault(); window.location.reload(); return }
     if (ctrl && !shift && !alt && key === 's') { e.preventDefault(); handleSave(); return }
     if (ctrl && shift && !alt && key === 's')  { e.preventDefault(); handleSaveAs(); return }
     if (ctrl && !shift && !alt && key === 'p') { e.preventDefault(); setQuickOpenVisible(true); return }
-  }, [openLinkDialog, openFind, openReplace, handleNew, handleSave, handleSaveAs])
+    if (ctrl && !shift && !alt && key === 'n') { e.preventDefault(); openNewTab(); return }
+    if (ctrl && !shift && !alt && key === 'w') { e.preventDefault(); closeTab(activeTabIdRef.current); return }
+    if (ctrl && !shift && !alt && key === 'tab') {
+      e.preventDefault()
+      const idx = tabsRef.current.findIndex(t => t.id === activeTabIdRef.current)
+      const next = tabsRef.current[(idx + 1) % tabsRef.current.length]
+      if (next) switchTab(next.id)
+      return
+    }
+    if (ctrl && shift && !alt && key === 'tab') {
+      e.preventDefault()
+      const idx = tabsRef.current.findIndex(t => t.id === activeTabIdRef.current)
+      const prev = tabsRef.current[(idx - 1 + tabsRef.current.length) % tabsRef.current.length]
+      if (prev) switchTab(prev.id)
+      return
+    }
+  }, [openLinkDialog, openFind, openReplace, handleSave, handleSaveAs, openNewTab, closeTab, switchTab])
 
   const handleCaptureKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'F8')  { e.preventDefault(); e.stopPropagation(); setFocusMode(v => !v) }
@@ -432,14 +624,16 @@ export default function App(): React.JSX.Element {
     }
   }, [handleKeyDown, handleCaptureKeyDown])
 
-  useEffect(() => { document.title = `${isDirty ? '● ' : ''}${fileName} — TypeShu` }, [fileName, isDirty])
-
   useEffect(() => {
-    window.api.on(IPC.FILE_SAVE,    () => handleSave())
-    window.api.on(IPC.FILE_SAVE_AS, () => handleSaveAs())
-    window.api.on(IPC.FILE_NEW,     () => handleNew())
-    return () => { [IPC.FILE_SAVE, IPC.FILE_SAVE_AS, IPC.FILE_NEW].forEach(ch => window.api.removeAllListeners(ch)) }
-  }, [handleSave, handleSaveAs, handleNew])
+    const activeTab = tabs.find(t => t.id === activeTabId)
+    const name = activeTab?.filePath ? activeTab.filePath.split(/[\\/]/).pop() : 'Sem título'
+    const dirty = activeTab?.isDirty ? '● ' : ''
+    document.title = `${dirty}${name} — TypeShu`
+  }, [tabs, activeTabId])
+
+  const activeTab      = tabs.find(t => t.id === activeTabId)
+  const activeFilePath = activeTab?.filePath ?? null
+  const activeIsDirty  = activeTab?.isDirty ?? false
 
   const shellClass = [
     'app-shell',
@@ -453,7 +647,6 @@ export default function App(): React.JSX.Element {
       <TitleBar onAction={handleTitleBarAction} />
 
       <div className="app-body">
-        {/* ActivityBar agora tem onPrefs — gear no bottom */}
         <ActivityBar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(v => !v)}
@@ -466,16 +659,16 @@ export default function App(): React.JSX.Element {
             <div className="sidebar">
               <GlobalSearch
                 dirPath={currentDirPath}
-                onOpen={(path, content) => { loadFile(path, content); setGlobalSearchVisible(false) }}
+                onOpen={(path, content) => { openInTab(path, content); setGlobalSearchVisible(false) }}
                 onClose={() => setGlobalSearchVisible(false)}
               />
             </div>
           ) : (
             <Sidebar
-              currentFilePath={filePath}
+              currentFilePath={activeFilePath}
               currentMarkdown={outlineMarkdown}
               recentFiles={recentFiles}
-              onFileOpen={loadFile}
+              onFileOpen={openInTab}
               onDirChange={handleDirChange}
               onFileDelete={handleFileDelete}
               onFileRename={handleFileRename}
@@ -484,7 +677,15 @@ export default function App(): React.JSX.Element {
         )}
 
         <div className="editor-area">
-          {filePath && (
+          <TabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSwitch={switchTab}
+            onClose={closeTab}
+            onReorder={reorderTabs}
+          />
+
+          {activeFilePath && (
             <Toolbar
               onBulletList={() => editorRef.current?.toggleBulletList()}
               onOrderedList={() => editorRef.current?.toggleOrderedList()}
@@ -513,8 +714,10 @@ export default function App(): React.JSX.Element {
               defaultValue={editorContentRef.current}
               onChange={(e) => {
                 editorContentRef.current = e.target.value
-                setIsDirty(true); setWordCountContent(e.target.value)
-                setOutlineMarkdown(e.target.value); setAutoSaved(false)
+                setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, content: e.target.value, isDirty: true } : t))
+                setWordCountContent(e.target.value)
+                setOutlineMarkdown(e.target.value)
+                setAutoSaved(false)
               }}
               onKeyDown={(e) => handleKeyDown(e.nativeEvent)}
               spellCheck={prefs.spellCheck} autoFocus
@@ -529,14 +732,19 @@ export default function App(): React.JSX.Element {
                 onKeyDown={handleKeyDown}
                 onChange={handleChange}
                 onFindState={handleFindState}
-                currentFilePath={filePath}
+                currentFilePath={activeFilePath}
               />
             </div>
           )}
         </div>
       </div>
 
-      <StatusBar content={wordCountContent} filePath={filePath} isDirty={isDirty} autoSaved={autoSaved} />
+      <StatusBar
+        content={wordCountContent}
+        filePath={activeFilePath}
+        isDirty={activeIsDirty}
+        autoSaved={autoSaved}
+      />
 
       {!sourceMode && (
         <FloatingToolbar
@@ -552,7 +760,7 @@ export default function App(): React.JSX.Element {
         />
       )}
 
-      {quickOpenVisible   && <QuickOpen dirPath={currentDirPath} onOpen={loadFile} onClose={() => setQuickOpenVisible(false)} />}
+      {quickOpenVisible   && <QuickOpen dirPath={currentDirPath} onOpen={openInTab} onClose={() => setQuickOpenVisible(false)} />}
       {linkDialogVisible  && <LinkDialog initialLabel={linkInitialLabel} onConfirm={handleLinkConfirm} onClose={() => setLinkDialogVisible(false)} />}
       {prefsVisible       && <PrefsPanel prefs={prefs} onChange={handlePrefsChange} onClose={handlePrefsClose} />}
     </div>

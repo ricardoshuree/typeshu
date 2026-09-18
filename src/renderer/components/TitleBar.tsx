@@ -1,5 +1,3 @@
-// [mcp-local harness] feature: polish-ui-2 | plano: bfad9e4c | 2026-09-18
-// Ícone ramen solid/filled estilo do anexo (tigela preenchida + espiral + hashis)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { NOTIFY } from '@shared/types'
 
@@ -32,6 +30,7 @@ const MENUS: { label: string; items: MenuItem[] }[] = [
     label: 'File',
     items: [
       { label: 'New',               accelerator: 'Ctrl+N',       action: 'file:new' },
+      { label: 'Close Tab',         accelerator: 'Ctrl+W',       action: 'tab:close' },
       { label: '', separator: true },
       { label: 'Open...',           accelerator: 'Ctrl+O',       action: 'file:open' },
       { label: 'Open Quickly',      accelerator: 'Ctrl+P',       action: 'ui:open-quickly' },
@@ -214,7 +213,7 @@ export function TitleBar({ onAction }: TitleBarProps): React.JSX.Element {
   )
 }
 
-/* ── Ramen icon — solid/filled estilo do anexo ───────────────────────────── */
+/* ── Ramen icon — solid/filled ───────────────────────────────────────────── */
 function RamenIcon() {
   return (
     <svg
@@ -224,23 +223,14 @@ function RamenIcon() {
       aria-hidden="true"
       style={{ flexShrink: 0 }}
     >
-      {/* Hashis — dois bastões inclinados */}
       <rect x="58" y="4" width="6" height="44" rx="3"
         transform="rotate(12 61 26)" />
       <rect x="70" y="4" width="6" height="44" rx="3"
         transform="rotate(18 73 26)" />
-
-      {/* Macarrão em espiral (arcos concêntricos filled) */}
-      {/* Anel externo */}
       <path d="M28 48 A18 18 0 1 1 46 30 A14 14 0 1 0 32 44 A10 10 0 1 1 40 35 A6 6 0 1 0 35 41 Z"
         fillRule="evenodd" />
-
-      {/* Tigela — forma principal preenchida */}
-      {/* Borda superior da tigela (faixa horizontal) */}
       <rect x="8" y="52" width="84" height="10" rx="5" />
-      {/* Corpo da tigela */}
       <path d="M12 62 Q14 90 50 92 Q86 90 88 62 Z" />
-      {/* Base da tigela */}
       <rect x="36" y="90" width="28" height="6" rx="3" />
     </svg>
   )

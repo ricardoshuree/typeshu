@@ -1,4 +1,3 @@
-// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
 // +WIN_MINIMIZE/MAXIMIZE/CLOSE/IS_MAXIMIZED ao IPC
 export interface OpenFile {
   path: string; name: string; content: string; isDirty: boolean
@@ -64,6 +63,15 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   mdSubscript:        false,
   mdSuperscript:      false,
   mdHighlight:        false,
+}
+
+// Estado de uma aba individual
+export interface TabState {
+  id:          string        // uuid gerado no cliente
+  filePath:    string | null // null = Untitled
+  content:     string        // conteúdo raw completo (com front matter)
+  isDirty:     boolean
+  scrollTop:   number        // posição de scroll salva ao trocar de aba
 }
 
 export const IPC = {

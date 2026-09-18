@@ -140,7 +140,7 @@ class MCPStatus:
     def lat_str(self):
         if self.lat_ms is None:
             return f"{_RD}offline{_R}"
-        c = _G if self.lat_ms < 50 else (_YL if self.lat_ms < 200 else _AM)
+        c = _G if self.lat_ms < 4 else (_YL if self.lat_ms < 7 else _AM)
         return f"{c}{self.lat_ms:>5.0f} ms{_R}"
 
     def uptime_str(self):
@@ -230,14 +230,14 @@ def _hist(history, width):
 
 def _dur_bar(dur_ms, max_ms, width=_BAR_W):
     """Barra de duracao com cor ABSOLUTA.
-    < 50ms = verde, < 200ms = amarelo, >= 200ms = laranja.
+    < 4ms = verde, < 7ms = amarelo, >= 7ms = laranja.
     """
     if max_ms <= 0:
         max_ms = 1
     ratio  = min(dur_ms / max_ms, 1.0)
     filled = max(1, int(ratio * width))
     empty  = width - filled
-    c      = _G if dur_ms < 50 else (_YL if dur_ms < 200 else _AM)
+    c      = _G if dur_ms < 4 else (_YL if dur_ms < 7 else _AM)
     # Pre-computa strings para evitar backslash em f-string (Python < 3.12)
     filled_str = _BLK * filled
     empty_str  = _SHAD * empty
@@ -366,7 +366,7 @@ def _render_calls(rows):
         path    = r["path"]
 
         c_op  = _OP_COLOR.get(tool, _CY)
-        c_dur = _G if dur < 50 else (_YL if dur < 200 else _AM)
+        c_dur = _G if dur < 4 else (_YL if dur < 7 else _AM)
         bar   = _dur_bar(dur, max_ms)
 
         l1 = (
@@ -397,9 +397,9 @@ def _legend_calls():
         f"{_R}{_DIM}  {'.' * (_LINE_W - 4)}{_R}\n"
         f"  {_DIM}tool calls: banco {db_st}  "
         f"ok=sucesso  er=erro  "
-        f"{_G}{_BLK}{_R}{_DIM}=rapido(<50ms)  "
-        f"{_YL}{_BLK}{_R}{_DIM}=normal(<200ms)  "
-        f"{_AM}{_BLK}{_R}{_DIM}=lento(>=200ms)  "
+        f"{_G}{_BLK}{_R}{_DIM}=rapido(<4ms)  "
+        f"{_YL}{_BLK}{_R}{_DIM}=normal(<7ms)  "
+        f"{_AM}{_BLK}{_R}{_DIM}=lento(>=7ms)  "
         f"{_GR}{_SHAD}{_R}{_GR}=vazio{_R}  audit: {jl_st}"
     )
 
