@@ -1,6 +1,6 @@
-// [mcp-local harness] feature: replace-in-document | plano: 25f77ea9 | 2026-09-17 22:15:21
-// CSS: FindBar refatorado com find-bar-row, find-bar-toggle, find-bar-toggle-spacer, find-bar-btn--replace
-// CSS com sidebar, outline, status bar, front matter, task list, mermaid, katex, quick open, global search, auto-save, external change banner, link dialog, sidebar file ops, find+replace bar
+// [mcp-local harness] feature: preferences-panel | plano: 88f6fdf3 | 2026-09-17 22:24:41
+// CSS completo: tema dark/light via data-theme, estilos do PrefsPanel
+// CSS completo com tema dark/light via data-theme e estilos do PrefsPanel
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -22,7 +22,7 @@
   --find-match-current:#ff9500;
   --sidebar-w:    240px;
   --font-ui:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-editor:  'Georgia', 'Times New Roman', serif;
+  --font-editor:  Georgia;
   --font-mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-size:    16px;
   --line-height:  1.6;
@@ -31,13 +31,13 @@
   --statusbar-h:  36px;
 }
 
+/* Sistema (respeita OS) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg:           #1e1e1e;
     --bg-sidebar:   #252526;
     --bg-editor:    #1e1e1e;
     --bg-statusbar: #111111;
-    --text-statusbar: #e8c97a;
     --text:         #d4d4d4;
     --text-muted:   #858585;
     --text-dimmed:  rgba(212, 212, 212, 0.15);
@@ -48,6 +48,39 @@
     --find-match:        #7a6500;
     --find-match-current:#c46a00;
   }
+}
+
+/* Forçar dark */
+:root[data-theme="dark"] {
+  --bg:           #1e1e1e;
+  --bg-sidebar:   #252526;
+  --bg-editor:    #1e1e1e;
+  --bg-statusbar: #111111;
+  --text:         #d4d4d4;
+  --text-muted:   #858585;
+  --text-dimmed:  rgba(212, 212, 212, 0.15);
+  --accent:       #569cd6;
+  --border:       #3c3c3c;
+  --selection:    #264f78;
+  --danger:       #f47174;
+  --find-match:        #7a6500;
+  --find-match-current:#c46a00;
+}
+
+/* Forçar light */
+:root[data-theme="light"] {
+  --bg:           #ffffff;
+  --bg-sidebar:   #f3f3f3;
+  --bg-editor:    #ffffff;
+  --bg-statusbar: #1a1a1a;
+  --text:         #1a1a1a;
+  --text-muted:   #6b6b6b;
+  --accent:       #4a90d9;
+  --border:       #e0e0e0;
+  --selection:    #b3d4fc;
+  --danger:       #e06c75;
+  --find-match:        #ffe066;
+  --find-match-current:#ff9500;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */
@@ -141,101 +174,27 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .find-match--current { background: var(--find-match-current); color: #fff; border-radius: 2px; outline: 2px solid color-mix(in srgb, var(--find-match-current) 60%, transparent); }
 
 /* ── Find / Replace Bar ────────────────────────────────────────────────── */
-.find-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 5px 10px 6px;
-  background: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  font-family: var(--font-ui);
-  font-size: 13px;
-}
-
-/* Cada linha da barra (find e replace) */
-.find-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 0;
-}
+.find-bar { display: flex; flex-direction: column; gap: 0; padding: 5px 10px 6px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); flex-shrink: 0; font-family: var(--font-ui); font-size: 13px; }
+.find-bar-row { display: flex; align-items: center; gap: 4px; padding: 1px 0; }
 .find-bar-row--replace { padding-top: 4px; }
-
-/* Botão ▸/▾ para toggle replace */
-.find-bar-toggle {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 10px;
-  padding: 2px 4px;
-  border-radius: var(--radius);
-  flex-shrink: 0;
-  line-height: 1;
-  width: 18px;
-}
+.find-bar-toggle { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 10px; padding: 2px 4px; border-radius: var(--radius); flex-shrink: 0; line-height: 1; width: 18px; }
 .find-bar-toggle:hover { background: var(--border); color: var(--text); }
-
-/* Espaçador que alinha o campo replace com o campo find */
 .find-bar-toggle-spacer { width: 18px; flex-shrink: 0; }
-
-.find-bar-input-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-editor);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 4px 8px;
-  flex: 1;
-  min-width: 0;
-  transition: border-color 0.1s;
-}
+.find-bar-input-wrap { display: flex; align-items: center; gap: 6px; background: var(--bg-editor); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; flex: 1; min-width: 0; transition: border-color 0.1s; }
 .find-bar-input-wrap:focus-within { border-color: var(--accent); }
 .find-bar-input-wrap--no-match { border-color: var(--danger); }
-
 .find-bar-icon { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
-
-.find-bar-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  font-size: 13px;
-  color: var(--text);
-  font-family: var(--font-ui);
-  min-width: 0;
-}
+.find-bar-input { flex: 1; background: none; border: none; outline: none; font-size: 13px; color: var(--text); font-family: var(--font-ui); min-width: 0; }
 .find-bar-input::placeholder { color: var(--text-muted); }
-
 .find-bar-count { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .find-bar-count--no-match { color: var(--danger); }
-
-.find-bar-btn {
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 3px 7px;
-  line-height: 1;
-  font-family: var(--font-ui);
-  flex-shrink: 0;
-  transition: background 0.1s, color 0.1s;
-}
+.find-bar-btn { background: none; border: 1px solid transparent; border-radius: var(--radius); color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 3px 7px; line-height: 1; font-family: var(--font-ui); flex-shrink: 0; transition: background 0.1s, color 0.1s; }
 .find-bar-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
 .find-bar-btn:disabled { opacity: 0.35; cursor: default; }
 .find-bar-btn--active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .find-bar-btn--case  { font-weight: 700; font-size: 11px; letter-spacing: -0.03em; }
 .find-bar-btn--close { font-size: 11px; }
-.find-bar-btn--replace {
-  border-color: var(--border);
-  color: var(--text);
-  font-size: 12px;
-  padding: 3px 10px;
-}
+.find-bar-btn--replace { border-color: var(--border); color: var(--text); font-size: 12px; padding: 3px 10px; }
 .find-bar-btn--replace:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 /* ── Task List ─────────────────────────────────────────────────────────── */
@@ -359,6 +318,178 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .link-dialog-btn:hover { border-color: var(--accent); color: var(--accent); }
 .link-dialog-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .link-dialog-btn--primary:hover { opacity: 0.85; color: #fff; }
+
+/* ── Preferences Panel ─────────────────────────────────────────────────── */
+.prefs-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1200;
+}
+
+.prefs-modal {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+  width: min(700px, 92vw);
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.prefs-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.prefs-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.prefs-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 6px; border-radius: var(--radius); }
+.prefs-close:hover { background: var(--border); color: var(--text); }
+
+.prefs-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Nav lateral */
+.prefs-nav {
+  width: 140px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 10px 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.prefs-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: none; border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px; font-family: var(--font-ui);
+  text-align: left; width: 100%;
+  transition: background 0.1s, color 0.1s;
+}
+.prefs-nav-item:hover { background: var(--border); color: var(--text); }
+.prefs-nav-item--active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
+.prefs-nav-icon { font-size: 14px; flex-shrink: 0; }
+
+/* Conteúdo da seção */
+.prefs-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.prefs-section { display: flex; flex-direction: column; gap: 20px; }
+
+.prefs-section-title {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.prefs-section-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: -8px; }
+
+.prefs-field { display: flex; flex-direction: column; gap: 8px; }
+.prefs-field--indented { padding-left: 20px; }
+
+.prefs-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+/* Radio group (tema) */
+.prefs-radio-group { display: flex; gap: 16px; }
+.prefs-radio { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
+.prefs-radio input { cursor: pointer; accent-color: var(--accent); }
+
+/* Select */
+.prefs-select {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px; font-family: var(--font-ui);
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+.prefs-select:focus { border-color: var(--accent); }
+
+/* Range + valor */
+.prefs-row { display: flex; align-items: center; gap: 10px; }
+.prefs-range { flex: 1; accent-color: var(--accent); cursor: pointer; }
+.prefs-value { font-size: 12px; color: var(--text-muted); min-width: 40px; text-align: right; font-family: var(--font-mono); }
+
+/* Chips de tamanho */
+.prefs-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.prefs-chip {
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-size: 11px; font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.prefs-chip:hover { border-color: var(--accent); color: var(--accent); }
+.prefs-chip--active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Preview de fonte */
+.prefs-preview {
+  padding: 12px 16px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  line-height: 1.6;
+}
+.prefs-preview code { font-family: var(--font-mono); font-size: 0.875em; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; }
+
+/* Toggle checkbox */
+.prefs-toggle {
+  display: flex; align-items: flex-start; gap: 10px;
+  cursor: pointer;
+}
+.prefs-toggle input { margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.prefs-toggle-label { font-size: 13px; font-weight: 500; color: var(--text); display: block; }
+.prefs-toggle-desc { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
+
+/* Nota de extensões Markdown */
+.prefs-md-note {
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-editor));
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Footer */
+.prefs-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.prefs-footer-hint { font-size: 11px; color: var(--text-muted); }
+.prefs-btn {
+  padding: 7px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-editor);
+  color: var(--text);
+  font-size: 13px; font-family: var(--font-ui);
+  cursor: pointer;
+}
+.prefs-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.prefs-btn--primary:hover { opacity: 0.85; }
 
 /* ── Print / Export PDF ────────────────────────────────────────────────── */
 @media print {

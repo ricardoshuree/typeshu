@@ -1,17 +1,17 @@
-// [mcp-local harness] feature: format-strikethrough-link-codefence-sidebar | plano: ee7b144b | 2026-09-17 17:44:55
-// Menu: sidebar Ctrl+Shift+L, Format com Strikethrough Alt+Shift+5 e Code Fence Ctrl+Shift+K
-// Menu completo: sidebar Ctrl+Shift+L, Strikethrough, Code Fence, Hyperlink
+// [mcp-local harness] feature: preferences-panel | plano: 88f6fdf3 | 2026-09-17 22:20:27
+// Menu: File → Preferences Ctrl+,; Edit com Find/Replace; canal ui:preferences
+// Menu completo: File com Preferences, Format com Strikethrough/Link/CodeFence, View com sidebar Ctrl+Shift+L
 import { Menu, BrowserWindow, app, dialog } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { IPC } from '../shared/types'
 
 const RESULT = {
   FILE_OPENED:    'file:opened',
-  FILE_SAVED:     'file:saved',
   OPEN_QUICKLY:   'ui:open-quickly',
   GLOBAL_SEARCH:  'ui:global-search',
   EXPORT_PDF:     'ui:export-pdf',
   EXPORT_HTML:    'ui:export-html',
+  PREFERENCES:    'ui:preferences',
 } as const
 
 function getWin(): BrowserWindow | null {
@@ -19,8 +19,7 @@ function getWin(): BrowserWindow | null {
 }
 
 async function openFile(): Promise<void> {
-  const win = getWin()
-  if (!win) return
+  const win = getWin(); if (!win) return
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown'] },
@@ -39,8 +38,7 @@ async function openFile(): Promise<void> {
 }
 
 async function saveFileAs(content: string): Promise<string | null> {
-  const win = getWin()
-  if (!win) return null
+  const win = getWin(); if (!win) return null
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     filters: [{ name: 'Markdown', extensions: ['md'] }, { name: 'Texto', extensions: ['txt'] }],
   })
@@ -71,6 +69,8 @@ export function buildMenu(): void {
           ],
         },
         { type: 'separator' },
+        { label: 'Preferences',   accelerator: 'CmdOrCtrl+,',       click: () => getWin()?.webContents.send(RESULT.PREFERENCES) },
+        { type: 'separator' },
         { label: 'Quit', accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Alt+F4', click: () => app.quit() },
       ],
     },
@@ -88,6 +88,8 @@ export function buildMenu(): void {
         { type: 'separator' },
         { label: 'Select All',    accelerator: 'CmdOrCtrl+A',       role: 'selectAll' },
         { type: 'separator' },
+        { label: 'Find',          accelerator: 'CmdOrCtrl+F',       click: () => getWin()?.webContents.send('ui:find') },
+        { label: 'Replace',       accelerator: 'CmdOrCtrl+H',       click: () => getWin()?.webContents.send('ui:replace') },
         { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => getWin()?.webContents.send(RESULT.GLOBAL_SEARCH) },
       ],
     },

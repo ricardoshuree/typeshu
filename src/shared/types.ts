@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-file-ops | plano: b136dd71 | 2026-09-17 21:47:04
-// Adiciona FILE_NEW_IN_DIR, FILE_RENAME, FILE_DELETE ao IPC
+// [mcp-local harness] feature: preferences-panel | plano: 88f6fdf3 | 2026-09-17 22:18:41
+// UserPreferences com mdSubscript, mdSuperscript, mdHighlight e fontFamily simplificado
 // src/shared/types.ts — tipos compartilhados entre main e renderer
 
 export interface OpenFile {
@@ -31,25 +31,40 @@ export interface SearchResult {
 }
 
 export interface UserPreferences {
+  // Tema
   theme: 'light' | 'dark' | 'system'
-  fontSize: number; fontFamily: string; lineHeight: number
-  focusMode: boolean; typewriterMode: boolean; spellCheck: boolean
+  // Editor
+  fontSize:       number
+  fontFamily:     string
+  lineHeight:     number
+  // Comportamento
+  autoSave:           boolean
+  autoSaveInterval:   number   // segundos
   autoPairDelimiters: boolean
-  autoSave: boolean
-  autoSaveInterval: number
+  spellCheck:         boolean
+  // Modos (estado persistido)
+  focusMode:      boolean
+  typewriterMode: boolean
+  // Extensões Markdown
+  mdSubscript:    boolean   // H~2~O
+  mdSuperscript:  boolean   // E=mc^2^
+  mdHighlight:    boolean   // ==texto==
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'system',
-  fontSize: 16,
-  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-  lineHeight: 1.6,
-  focusMode: false,
-  typewriterMode: false,
-  spellCheck: true,
+  theme:              'system',
+  fontSize:           16,
+  fontFamily:         'Georgia',
+  lineHeight:         1.6,
+  autoSave:           true,
+  autoSaveInterval:   30,
   autoPairDelimiters: true,
-  autoSave: true,
-  autoSaveInterval: 30,
+  spellCheck:         true,
+  focusMode:          false,
+  typewriterMode:     false,
+  mdSubscript:        false,
+  mdSuperscript:      false,
+  mdHighlight:        false,
 }
 
 export const IPC = {
@@ -58,9 +73,9 @@ export const IPC = {
   FILE_SAVE:        'file:save',
   FILE_SAVE_AS:     'file:save-as',
   FILE_NEW:         'file:new',
-  FILE_NEW_IN_DIR:  'file:new-in-dir',   // cria arquivo em pasta específica
-  FILE_RENAME:      'file:rename',        // renomeia arquivo/pasta
-  FILE_DELETE:      'file:delete',        // move para lixeira
+  FILE_NEW_IN_DIR:  'file:new-in-dir',
+  FILE_RENAME:      'file:rename',
+  FILE_DELETE:      'file:delete',
   DIR_LIST:         'dir:list',
   DIR_OPEN:         'dir:open',
   SEARCH_FILES:     'search:files',
