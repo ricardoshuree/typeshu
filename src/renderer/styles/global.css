@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: toolbars-v2 | plano: 807ef92b | 2026-09-18
-// +.tb-sep no toolbar fixo; +.ftb-* para FloatingToolbar
+// [mcp-local harness] feature: sidebar-drag-drop | plano: d855f34a | 2026-09-18
+// +.tree-item--dragging, .tree-item--drop-target para drag & drop visual
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -118,6 +118,11 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .tree-empty { font-size: 12px; color: var(--text-muted); padding: 4px 0; font-style: italic; }
 .tree-item--renaming { background: color-mix(in srgb, var(--accent) 10%, transparent); cursor: default; }
 .tree-rename-input { flex: 1; background: var(--bg-editor); border: 1px solid var(--accent); border-radius: 3px; color: var(--text); font-size: 13px; font-family: var(--font-ui); padding: 1px 6px; outline: none; min-width: 0; height: 20px; }
+
+/* ── Drag & Drop ───────────────────────────────────────────────────────── */
+.tree-item--dragging { opacity: 0.4; cursor: grabbing; }
+.tree-item--drop-target { background: color-mix(in srgb, var(--accent) 20%, transparent); outline: 1px solid var(--accent); outline-offset: -1px; }
+.tree-item--drop-target .tree-name { color: var(--accent); }
 
 /* ── Context Menu ──────────────────────────────────────────────────────── */
 .ctx-menu { position: fixed; z-index: 2000; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); padding: 4px; min-width: 160px; font-size: 13px; }
@@ -394,124 +399,23 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .tb-btn--icon { min-width: 30px; }
 
 /* ── Floating Toolbar ──────────────────────────────────────────────────── */
-.ftb {
-  position: fixed;
-  z-index: 1500;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px 5px;
-  background: var(--bg-toolbar);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-  transform: translateY(-100%);
-  user-select: none;
-  pointer-events: auto;
-  animation: ftb-in 0.08s ease;
-}
-
-@keyframes ftb-in {
-  from { opacity: 0; transform: translateY(calc(-100% - 4px)); }
-  to   { opacity: 1; transform: translateY(-100%); }
-}
-
-/* Separador vertical no flutuante */
-.ftb-sep {
-  display: block;
-  width: 1px;
-  height: 14px;
-  background: var(--border);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
-/* Botão base */
-.ftb-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  min-width: 24px;
-  padding: 0 4px;
-  background: none;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 12px;
-  font-family: var(--font-ui);
-  font-weight: 400;
-  transition: background 0.08s, color 0.08s;
-  flex-shrink: 0;
-  line-height: 1;
-}
+.ftb { position: fixed; z-index: 1500; display: flex; align-items: center; gap: 2px; padding: 3px 5px; background: var(--bg-toolbar); border: 1px solid var(--border); border-radius: 7px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); transform: translateY(-100%); user-select: none; pointer-events: auto; animation: ftb-in 0.08s ease; }
+@keyframes ftb-in { from { opacity: 0; transform: translateY(calc(-100% - 4px)); } to { opacity: 1; transform: translateY(-100%); } }
+.ftb-sep { display: block; width: 1px; height: 14px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+.ftb-btn { display: flex; align-items: center; justify-content: center; height: 24px; min-width: 24px; padding: 0 4px; background: none; border: none; border-radius: 4px; color: var(--text-muted); cursor: pointer; font-size: 12px; font-family: var(--font-ui); font-weight: 400; transition: background 0.08s, color 0.08s; flex-shrink: 0; line-height: 1; }
 .ftb-btn:hover { background: var(--border); color: var(--text); }
 .ftb-btn:active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 .ftb-btn--active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-
-/* Variantes de estilo dos botões inline */
-.ftb-btn--bold   { font-weight: 700; }
+.ftb-btn--bold { font-weight: 700; }
 .ftb-btn--italic { font-style: italic; }
 .ftb-btn--strike { text-decoration: line-through; }
-
-/* Heading button com chevron */
-.ftb-btn--heading {
-  gap: 2px;
-  padding: 0 5px;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: -0.02em;
-  min-width: 32px;
-}
-
-/* Wrapper do dropdown de heading */
+.ftb-btn--heading { gap: 2px; padding: 0 5px; font-weight: 700; font-size: 11px; letter-spacing: -0.02em; min-width: 32px; }
 .ftb-heading-wrap { position: relative; flex-shrink: 0; }
-
-/* Dropdown menu do heading */
-.ftb-heading-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  background: var(--bg-toolbar);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  padding: 4px;
-  min-width: 130px;
-  z-index: 1600;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  animation: ftb-in 0.07s ease;
-}
-
-.ftb-heading-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  padding: 5px 8px;
-  background: none;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: left;
-  color: var(--text);
-  font-family: var(--font-ui);
-  transition: background 0.07s;
-}
+.ftb-heading-menu { position: absolute; top: calc(100% + 6px); left: 0; background: var(--bg-toolbar); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); padding: 4px; min-width: 130px; z-index: 1600; display: flex; flex-direction: column; gap: 1px; animation: ftb-in 0.07s ease; }
+.ftb-heading-item { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 5px 8px; background: none; border: none; border-radius: 4px; cursor: pointer; text-align: left; color: var(--text); font-family: var(--font-ui); transition: background 0.07s; }
 .ftb-heading-item:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-
-.ftb-heading-tag {
-  font-weight: 700;
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  min-width: 18px;
-}
+.ftb-heading-tag { font-weight: 700; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); min-width: 18px; }
 .ftb-heading-item:hover .ftb-heading-tag { color: var(--accent); }
-
 .ftb-heading-item--p  .ftb-heading-label { font-size: 13px; }
 .ftb-heading-item--h1 .ftb-heading-label { font-size: 15px; font-weight: 700; }
 .ftb-heading-item--h2 .ftb-heading-label { font-size: 14px; font-weight: 600; }

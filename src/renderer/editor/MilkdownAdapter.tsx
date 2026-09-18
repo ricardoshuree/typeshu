@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: fix-italic-final | plano: b14d3530 | 2026-09-18
-// Fix: toggleItalic usa 'emphasis' — nome real do mark no schema Milkdown v7
+// [mcp-local harness] feature: list-toggle-fix2 | plano: 3310a28e | 2026-09-18
+// Fix definitivo toggle lista: closure booleana coordena lift XOR callCommand
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -18,13 +18,16 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { math } from '@milkdown/plugin-math'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { callCommand, $prose } from '@milkdown/utils'
-import { TextSelection } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
+import { liftListItem } from 'prosemirror-schema-list'
+import type { EditorView } from 'prosemirror-view'
 import { createAutoPairPlugin }    from './autoPairPlugin'
 import { createTaskListPlugin }    from './taskListPlugin'
 import { createFrontMatterPlugin } from './frontMatterPlugin'
 import { createMermaidPlugin }     from './mermaidPlugin'
 import { createShortcutPlugin }    from './shortcutPlugin'
 import { createFindPlugin, findPluginKey } from './findPlugin'
+import { SIDEBAR_DRAG_KEY } from '../components/Sidebar'
 import type { EditorProps } from './EditorAdapter'
 import 'katex/dist/katex.min.css'
 
@@ -53,8 +56,9 @@ export interface EditorHandle {
 }
 
 interface MilkdownEditorProps extends EditorProps {
-  onKeyDown?:   (e: KeyboardEvent) => void
-  onFindState?: (matches: number, current: number) => void
+  onKeyDown?:       (e: KeyboardEvent) => void
+  onFindState?:     (matches: number, current: number) => void
+  currentFilePath?: string | null
 }
 
 function getView(ctx: Ctx) {
@@ -99,16 +103,80 @@ function doInsertCodeFence(ctx: Ctx, lang = '') {
   } catch (e) { console.warn('insertCodeFence error:', e) }
 }
 
+// ── Helpers de lista ──────────────────────────────────────────────────────
+function isInListType(view: EditorView, listTypeName: string): boolean {
+  const listType = view.state.schema.nodes[listTypeName]
+  if (!listType) return false
+  const { $from } = view.state.selection
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type === listType) return true
+  }
+  return false
+}
+
+// ── Drop plugin (C: sidebar → editor) ─────────────────────────────────────
+function relativePath(from: string, to: string): string {
+  const norm = (p: string) => p.replace(/\\/g, '/')
+  const fromDir = norm(from).replace(/\/[^/]+$/, '')
+  const toNorm  = norm(to)
+  if (toNorm.startsWith(fromDir + '/')) return './' + toNorm.slice(fromDir.length + 1)
+  const fromParts = fromDir.split('/')
+  const toParts   = toNorm.split('/')
+  let common = 0
+  while (common < fromParts.length && common < toParts.length && fromParts[common] === toParts[common]) common++
+  const ups  = fromParts.length - common
+  const down = toParts.slice(common)
+  return (ups > 0 ? '../'.repeat(ups) : './') + down.join('/')
+}
+
+function pathBasename(p: string): string {
+  return p.replace(/\\/g, '/').split('/').pop() ?? p
+}
+
+const dropPluginKey = new PluginKey('sidebarDrop')
+
+function createDropPlugin(getCurrentFilePath: () => string | null | undefined): Plugin {
+  return new Plugin({
+    key: dropPluginKey,
+    props: {
+      handleDrop(view: EditorView, event: DragEvent): boolean {
+        const filePath = event.dataTransfer?.getData(SIDEBAR_DRAG_KEY)
+        if (!filePath) return false
+        event.preventDefault()
+        const isDir  = event.dataTransfer?.getData('typeshu/isdir') === '1'
+        const name   = pathBasename(filePath)
+        const label  = isDir ? name : name.replace(/\.(md|markdown|txt)$/i, '')
+        const currentFile = getCurrentFilePath()
+        let href: string
+        if (currentFile) {
+          href = relativePath(currentFile, filePath) + (isDir ? '/' : '')
+        } else {
+          href = isDir ? `./${name}/` : `./${name}`
+        }
+        const mdLink = `[${label}](${href})`
+        const coords = { left: event.clientX, top: event.clientY }
+        const pos = view.posAtCoords(coords)
+        if (!pos) { view.dispatch(view.state.tr.insertText(mdLink)); view.focus(); return true }
+        view.dispatch(view.state.tr.insertText(mdLink, pos.pos).scrollIntoView())
+        view.focus()
+        return true
+      },
+    },
+  })
+}
+
 const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function MilkdownEditor(
-  { initialContent = '', onChange, readOnly = false, onKeyDown, onFindState },
+  { initialContent = '', onChange, readOnly = false, onKeyDown, onFindState, currentFilePath },
   ref
 ) {
-  const onChangeRef    = useRef(onChange)
-  const onKeyDownRef   = useRef(onKeyDown)
-  const onFindStateRef = useRef(onFindState)
-  onChangeRef.current    = onChange
-  onKeyDownRef.current   = onKeyDown
-  onFindStateRef.current = onFindState
+  const onChangeRef       = useRef(onChange)
+  const onKeyDownRef      = useRef(onKeyDown)
+  const onFindStateRef    = useRef(onFindState)
+  const currentFileRef    = useRef(currentFilePath)
+  onChangeRef.current     = onChange
+  onKeyDownRef.current    = onKeyDown
+  onFindStateRef.current  = onFindState
+  currentFileRef.current  = currentFilePath
 
   const autoPairSlice    = useRef($prose(() => createAutoPairPlugin()))
   const taskListSlice    = useRef($prose(() => createTaskListPlugin()))
@@ -116,6 +184,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
   const mermaidSlice     = useRef($prose(() => createMermaidPlugin()))
   const shortcutSlice    = useRef($prose(() => createShortcutPlugin()))
   const findSlice        = useRef($prose(() => createFindPlugin()))
+  const dropSlice        = useRef($prose(() => createDropPlugin(() => currentFileRef.current)))
 
   const { get } = useEditor((root) =>
     Editor.make()
@@ -146,6 +215,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       .use(taskListSlice.current)
       .use(frontMatterSlice.current)
       .use(mermaidSlice.current)
+      .use(dropSlice.current)
   )
 
   function dispatchAndNotify(view: any, tr: any) {
@@ -182,16 +252,50 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
       e.action(callCommand(wrapInBlockquoteCommand.key))
     },
+
+    // ── Toggle lista — padrão: closure booleana coordena duas actions ──────
     toggleBulletList: () => {
       const e = get(); if (!e) return
-      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
-      e.action(callCommand(wrapInBulletListCommand.key))
+      // Passo 1: captura o estado atual e executa lift se necessário
+      let wasInList = false
+      e.action((ctx) => {
+        const view = getView(ctx); if (!view) return
+        if (!view.hasFocus()) view.focus()
+        wasInList = isInListType(view, 'bullet_list')
+        if (wasInList) {
+          const itemType = view.state.schema.nodes['list_item']
+          if (itemType) {
+            liftListItem(itemType)(view.state, view.dispatch)
+            view.focus()
+          }
+        }
+      })
+      // Passo 2: wrap — só tem efeito se não estava na lista (callCommand é no-op se inaplicável)
+      if (!wasInList) {
+        e.action(callCommand(wrapInBulletListCommand.key))
+      }
     },
+
     toggleOrderedList: () => {
       const e = get(); if (!e) return
-      e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
-      e.action(callCommand(wrapInOrderedListCommand.key))
+      let wasInList = false
+      e.action((ctx) => {
+        const view = getView(ctx); if (!view) return
+        if (!view.hasFocus()) view.focus()
+        wasInList = isInListType(view, 'ordered_list')
+        if (wasInList) {
+          const itemType = view.state.schema.nodes['list_item']
+          if (itemType) {
+            liftListItem(itemType)(view.state, view.dispatch)
+            view.focus()
+          }
+        }
+      })
+      if (!wasInList) {
+        e.action(callCommand(wrapInOrderedListCommand.key))
+      }
     },
+
     insertTable: () => {
       const e = get(); if (!e) return
       e.action((ctx) => { const view = getView(ctx); if (view && !view.hasFocus()) view.focus() })
@@ -317,9 +421,10 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
 })
 
 export interface MilkdownAdapterProps extends EditorProps {
-  editorRef?:   React.Ref<EditorHandle>
-  onKeyDown?:   (e: KeyboardEvent) => void
-  onFindState?: (matches: number, current: number) => void
+  editorRef?:       React.Ref<EditorHandle>
+  onKeyDown?:       (e: KeyboardEvent) => void
+  onFindState?:     (matches: number, current: number) => void
+  currentFilePath?: string | null
 }
 
 export function MilkdownAdapter({ editorRef, ...props }: MilkdownAdapterProps): React.JSX.Element {

@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-file-ops | plano: 59b535fe | 2026-09-18
-// +newDir, revealInExplorer, copyPath
+// [mcp-local harness] feature: sidebar-drag-fix | plano: 18675a25 | 2026-09-18
+// +moveFile via IPC.FILE_MOVE
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
 
@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('api', {
   newFile:           (dirPath: string, fileName: string) => ipcRenderer.invoke(IPC.FILE_NEW_IN_DIR, dirPath, fileName),
   newDir:            (parentPath: string, dirName: string) => ipcRenderer.invoke(IPC.DIR_NEW, parentPath, dirName),
   renameFile:        (oldPath: string, newName: string)  => ipcRenderer.invoke(IPC.FILE_RENAME, oldPath, newName),
+  moveFile:          (sourcePath: string, destDir: string) => ipcRenderer.invoke(IPC.FILE_MOVE, sourcePath, destDir),
   deleteFile:        (filePath: string) => ipcRenderer.invoke(IPC.FILE_DELETE, filePath),
   revealInExplorer:  (filePath: string) => ipcRenderer.invoke(IPC.FILE_REVEAL, filePath),
   copyPath:          (filePath: string) => ipcRenderer.invoke(IPC.FILE_COPY_PATH, filePath),

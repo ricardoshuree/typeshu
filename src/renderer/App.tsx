@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: toolbars-v2-fix3 | plano: 7e079ba3 | 2026-09-18
-// FloatingToolbar: onFocus→onExecute usando executeWithSelection
+// [mcp-local harness] feature: sidebar-drag-drop-app | plano: 9b40ba8a | 2026-09-18
+// +currentFilePath no MilkdownAdapter para dropPlugin calcular caminho relativo
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MilkdownAdapter, EditorHandle } from './editor/MilkdownAdapter'
 import { setFindOpener, setReplaceOpener } from './editor/shortcutPlugin'
@@ -486,9 +486,13 @@ export default function App(): React.JSX.Element {
             <div className="milkdown-root" ref={milkdownContainerRef}>
               {frontMatter !== null && <FrontMatterPanel content={frontMatter} />}
               <MilkdownAdapter
-                key={editorKey} initialContent={initialContent}
-                editorRef={editorRef} onKeyDown={handleKeyDown}
-                onChange={handleChange} onFindState={handleFindState}
+                key={editorKey}
+                initialContent={initialContent}
+                editorRef={editorRef}
+                onKeyDown={handleKeyDown}
+                onChange={handleChange}
+                onFindState={handleFindState}
+                currentFilePath={filePath}
               />
             </div>
           )}

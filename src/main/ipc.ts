@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-file-ops | plano: 59b535fe | 2026-09-18
-// +DIR_NEW, FILE_REVEAL, FILE_COPY_PATH handlers
+// [mcp-local harness] feature: sidebar-drag-fix | plano: 18675a25 | 2026-09-18
+// +FILE_MOVE handler: move sourcePath para destDir/basename(sourcePath)
 import { ipcMain, dialog, BrowserWindow, shell, app, clipboard } from 'electron'
 import { readFile, writeFile, readdir, stat, rename, mkdir } from 'fs/promises'
 import { join, extname, relative, dirname, basename } from 'path'
@@ -11,10 +11,8 @@ const RECENT_MAX = 10
 const recentPath = () => join(app.getPath('userData'), 'recent.json')
 
 async function loadRecent(): Promise<RecentFile[]> {
-  try {
-    const raw = await readFile(recentPath(), 'utf-8')
-    return JSON.parse(raw) as RecentFile[]
-  } catch { return [] }
+  try { const raw = await readFile(recentPath(), 'utf-8'); return JSON.parse(raw) as RecentFile[] }
+  catch { return [] }
 }
 
 async function saveRecent(list: RecentFile[]): Promise<void> {
@@ -31,7 +29,6 @@ async function addRecent(filePath: string): Promise<RecentFile[]> {
   return list
 }
 
-// ── Watch ──────────────────────────────────────────────────────────────────
 let prefs: UserPreferences = { ...DEFAULT_PREFERENCES }
 let currentWatcher: FSWatcher | null = null
 let watchedPath: string | null = null
@@ -60,7 +57,6 @@ async function startWatch(filePath: string): Promise<void> {
   } catch (e) { console.error('[watch] falha ao iniciar chokidar:', e) }
 }
 
-// ── File read ──────────────────────────────────────────────────────────────
 async function readTextFile(filePath: string): Promise<string> {
   const buf = await readFile(filePath)
   if (buf[0] === 0xFF && buf[1] === 0xFE) return buf.slice(2).toString('utf16le')
@@ -73,7 +69,6 @@ async function readTextFile(filePath: string): Promise<string> {
   return buf.toString('utf-8')
 }
 
-// ── Dir listing ────────────────────────────────────────────────────────────
 const MD_EXTENSIONS = new Set(['.md', '.markdown', '.txt'])
 const SKIP_DIRS     = new Set(['node_modules', '.git', 'dist', 'release', '.cache'])
 
@@ -98,7 +93,6 @@ async function listDir(dirPath: string): Promise<FileEntry[]> {
   })
 }
 
-// ── Search ─────────────────────────────────────────────────────────────────
 async function searchInFiles(
   dirPath: string, rootPath: string, query: string,
   caseSensitive: boolean, depth = 0, maxDepth = 4
@@ -138,7 +132,6 @@ async function searchInFiles(
   return results
 }
 
-// ── Register ───────────────────────────────────────────────────────────────
 export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.FILE_OPEN, async () => {
@@ -195,13 +188,12 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, query, results: [], total: 0, error: String(e) } }
   })
 
-  // ── Sidebar file ops ───────────────────────────────────────────────────
   ipcMain.handle(IPC.FILE_NEW_IN_DIR, async (_e, dirPath: string, fileName: string) => {
     try {
       const name = fileName.endsWith('.md') || fileName.endsWith('.txt') ? fileName : `${fileName}.md`
       const fullPath = join(dirPath, name)
       try { await stat(fullPath); return { success: false, error: 'Arquivo já existe', path: fullPath } }
-      catch { /* não existe — pode criar */ }
+      catch { /* não existe */ }
       await writeFile(fullPath, '', 'utf-8')
       return { success: true, path: fullPath, content: '' }
     } catch (e) { return { success: false, error: String(e) } }
@@ -226,28 +218,36 @@ export function registerIpcHandlers(): void {
     } catch (e) { return { success: false, error: String(e) } }
   })
 
+  // Move arquivo/pasta para outra pasta (drag & drop entre pastas)
+  ipcMain.handle(IPC.FILE_MOVE, async (_e, sourcePath: string, destDir: string) => {
+    try {
+      const name    = basename(sourcePath)
+      const newPath = join(destDir, name)
+      // Verifica se destino já existe
+      try {
+        await stat(newPath)
+        return { success: false, error: `"${name}" já existe em "${destDir}"`, newPath }
+      } catch { /* não existe — pode mover */ }
+      await rename(sourcePath, newPath)
+      return { success: true, sourcePath, newPath }
+    } catch (e) { return { success: false, error: String(e) } }
+  })
+
   ipcMain.handle(IPC.FILE_DELETE, async (_e, filePath: string) => {
     try { await shell.trashItem(filePath); return { success: true, path: filePath } }
     catch (e) { return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.FILE_REVEAL, async (_e, filePath: string) => {
-    try {
-      // Para arquivos: abre a pasta contendo; para pastas: abre a própria pasta
-      const target = filePath
-      shell.showItemInFolder(target)
-      return { success: true }
-    } catch (e) { return { success: false, error: String(e) } }
+    try { shell.showItemInFolder(filePath); return { success: true } }
+    catch (e) { return { success: false, error: String(e) } }
   })
 
   ipcMain.handle(IPC.FILE_COPY_PATH, async (_e, filePath: string) => {
-    try {
-      clipboard.writeText(filePath)
-      return { success: true }
-    } catch (e) { return { success: false, error: String(e) } }
+    try { clipboard.writeText(filePath); return { success: true } }
+    catch (e) { return { success: false, error: String(e) } }
   })
 
-  // ── Watch ──────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.WATCH_START, async (_e, filePath: string) => {
     await startWatch(filePath); return { success: true }
   })
@@ -255,16 +255,12 @@ export function registerIpcHandlers(): void {
     await stopWatch(); return { success: true }
   })
 
-  // ── Prefs ──────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.PREFS_GET, () => prefs)
   ipcMain.handle(IPC.PREFS_SET, (_e, partial: Partial<UserPreferences>) => {
     prefs = { ...prefs, ...partial }; return prefs
   })
 
-  // ── Recent files ───────────────────────────────────────────────────────
-  ipcMain.handle(IPC.RECENT_GET, async () => {
-    return loadRecent()
-  })
+  ipcMain.handle(IPC.RECENT_GET, async () => loadRecent())
 
   ipcMain.handle(IPC.RECENT_ADD, async (_e, filePath: string) => {
     const list = await addRecent(filePath)

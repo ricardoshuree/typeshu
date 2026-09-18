@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: sidebar-file-ops | plano: 59b535fe | 2026-09-18
-// +IPC.DIR_NEW, FILE_REVEAL, FILE_COPY_PATH
+// [mcp-local harness] feature: sidebar-drag-fix | plano: 18675a25 | 2026-09-18
+// +IPC.FILE_MOVE para mover arquivo/pasta para outra pasta
 
 export interface OpenFile {
   path: string; name: string; content: string; isDirty: boolean
@@ -75,6 +75,7 @@ export const IPC = {
   FILE_NEW:         'file:new',
   FILE_NEW_IN_DIR:  'file:new-in-dir',
   FILE_RENAME:      'file:rename',
+  FILE_MOVE:        'file:move',       // move sourcePath → destDir/name
   FILE_DELETE:      'file:delete',
   FILE_REVEAL:      'file:reveal',
   FILE_COPY_PATH:   'file:copy-path',
