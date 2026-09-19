@@ -1,7 +1,6 @@
-// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
 // +handlers WIN_MINIMIZE/MAXIMIZE/CLOSE/IS_MAXIMIZED
 import { ipcMain, dialog, BrowserWindow, shell, app, clipboard } from 'electron'
-import { readFile, writeFile, readdir, stat, rename, mkdir } from 'fs/promises'
+import { readFile, writeFile, readdir, stat, rename, mkdir, copyFile } from 'fs/promises'
 import { join, extname, relative, dirname, basename } from 'path'
 import { IPC, NOTIFY, DEFAULT_PREFERENCES, UserPreferences, FileEntry, RecentFile, SearchFileResult, SearchResult } from '../shared/types'
 
@@ -165,6 +164,51 @@ export function registerIpcHandlers(): void {
     ignoreNextChange = true
     try { await writeFile(filePath, content, 'utf-8'); return { success: true, path: filePath } }
     catch (e) { ignoreNextChange = false; return { success: false, error: String(e) } }
+  })
+
+  // ── Salvar imagem em assets ───────────────────────────────────────────
+  // payload: { mdFilePath, assetsFolder, fileName, buffer (base64) | sourcePath }
+  ipcMain.handle(IPC.IMAGE_SAVE, async (_e, payload: {
+    mdFilePath: string
+    assetsFolder: string
+    fileName: string
+    buffer?: string     // base64 — para imagens do clipboard
+    sourcePath?: string // path original — para drag & drop de arquivo
+  }) => {
+    try {
+      const mdDir    = dirname(payload.mdFilePath)
+      const destDir  = join(mdDir, payload.assetsFolder)
+      await mkdir(destDir, { recursive: true })
+
+      // resolve nome único se já existir
+      let fileName = payload.fileName
+      let destPath = join(destDir, fileName)
+      let counter  = 1
+      while (true) {
+        try { await stat(destPath); } catch { break } // não existe → pode usar
+        const ext  = extname(fileName)
+        const base = basename(fileName, ext)
+        fileName = `${base}-${counter}${ext}`
+        destPath = join(destDir, fileName)
+        counter++
+      }
+
+      if (payload.buffer) {
+        // imagem do clipboard (base64)
+        const buf = Buffer.from(payload.buffer, 'base64')
+        await writeFile(destPath, buf)
+      } else if (payload.sourcePath) {
+        // drag & drop de arquivo
+        await copyFile(payload.sourcePath, destPath)
+      } else {
+        return { success: false, error: 'Nenhuma fonte de imagem fornecida' }
+      }
+
+      const relPath = `./${payload.assetsFolder}/${fileName}`.replace(/\\/g, '/')
+      return { success: true, savedPath: destPath, relativePath: relPath }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
   })
 
   ipcMain.handle(IPC.DIR_LIST, async (_e, dirPath: string) => {

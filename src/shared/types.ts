@@ -33,20 +33,26 @@ export interface SearchResult {
   success: boolean; query: string; results: SearchFileResult[]; total: number; error?: string
 }
 
+export interface ImageSaveResult {
+  success: boolean; savedPath?: string; relativePath?: string; error?: string
+}
+
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system'
-  fontSize:           number
-  fontFamily:         string
-  lineHeight:         number
-  autoSave:           boolean
-  autoSaveInterval:   number
-  autoPairDelimiters: boolean
-  spellCheck:         boolean
-  focusMode:          boolean
-  typewriterMode:     boolean
-  mdSubscript:        boolean
-  mdSuperscript:      boolean
-  mdHighlight:        boolean
+  fontSize:             number
+  fontFamily:           string
+  lineHeight:           number
+  autoSave:             boolean
+  autoSaveInterval:     number
+  autoPairDelimiters:   boolean
+  spellCheck:           boolean
+  focusMode:            boolean
+  typewriterMode:       boolean
+  mdSubscript:          boolean
+  mdSuperscript:        boolean
+  mdHighlight:          boolean
+  imageCopyToAssets:    boolean   // copia imagem inserida para pasta de assets
+  imageAssetsFolder:    string    // nome da subpasta (default: 'assets')
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -63,6 +69,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   mdSubscript:        false,
   mdSuperscript:      false,
   mdHighlight:        false,
+  imageCopyToAssets:  true,
+  imageAssetsFolder:  'assets',
 }
 
 // Estado de uma aba individual
@@ -86,6 +94,7 @@ export const IPC = {
   FILE_DELETE:      'file:delete',
   FILE_REVEAL:      'file:reveal',
   FILE_COPY_PATH:   'file:copy-path',
+  IMAGE_SAVE:       'image:save',
   DIR_LIST:         'dir:list',
   DIR_OPEN:         'dir:open',
   DIR_NEW:          'dir:new',

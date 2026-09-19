@@ -49,6 +49,17 @@ Este é um editor Markdown com **live preview** — o que você digita é render
 > Comece a digitar aqui ou abra um arquivo existente.
 `
 
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'])
+
+function isImageFile(name: string): boolean {
+  const ext = name.toLowerCase().slice(name.lastIndexOf('.'))
+  return IMAGE_EXTENSIONS.has(ext)
+}
+
+function timestamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+}
+
 declare const window: Window & {
   api: {
     openFile:    () => Promise<{ success: boolean; path?: string; content?: string }>
@@ -64,6 +75,10 @@ declare const window: Window & {
     setPrefs:    (p: Partial<UserPreferences>) => Promise<UserPreferences>
     getRecent:   () => Promise<RecentFile[]>
     addRecent:   (filePath: string) => Promise<RecentFile[]>
+    saveImage:   (payload: {
+      mdFilePath: string; assetsFolder: string; fileName: string
+      buffer?: string; sourcePath?: string
+    }) => Promise<{ success: boolean; savedPath?: string; relativePath?: string; error?: string }>
     windowMinimize:    () => Promise<void>
     windowMaximize:    () => Promise<void>
     windowClose:       () => Promise<void>
@@ -171,9 +186,11 @@ export default function App(): React.JSX.Element {
   const autoSaveIntervalRef = useRef(AUTO_SAVE_INTERVAL_DEFAULT)
   const editorRef           = useRef<EditorHandle>(null)
   const milkdownContainerRef = useRef<HTMLDivElement>(null)
+  const prefsRef             = useRef<UserPreferences>(DEFAULT_PREFERENCES)
 
   useEffect(() => { tabsRef.current = tabs },               [tabs])
   useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
+  useEffect(() => { prefsRef.current = prefs },             [prefs])
 
   function getActiveTab(): TabState | undefined {
     return tabsRef.current.find(t => t.id === activeTabIdRef.current)
@@ -200,6 +217,119 @@ export default function App(): React.JSX.Element {
       if (milkdownContainerRef.current) milkdownContainerRef.current.scrollTop = tab.scrollTop
     }, 80)
   }
+
+  // ── Inserir imagem no editor ──────────────────────────────────────────
+  const insertImageMarkdown = useCallback((relPath: string, altText: string) => {
+    const md = `![${altText}](${relPath})`
+    editorRef.current?.replaceSelectionWith(md)
+  }, [])
+
+  const handleImageInsert = useCallback(async (
+    source: { type: 'file'; path: string; name: string } | { type: 'clipboard'; buffer: string; ext: string }
+  ) => {
+    const tab = getActiveTab()
+    if (!tab?.filePath) {
+      const ok = confirm('Para inserir imagens, salve o arquivo primeiro.\n\nDeseja salvar agora?')
+      if (!ok) return
+      const r = await window.api.saveFileAs(editorContentRef.current)
+      if (!r.success || !r.path) return
+      setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, filePath: r.path!, isDirty: false } : t))
+      window.api.watchStart(r.path)
+      // após salvar, tenta de novo com o novo path
+      const newTab = { ...tab, filePath: r.path! }
+      await doSaveImage(newTab.filePath, source)
+      return
+    }
+    await doSaveImage(tab.filePath, source)
+  }, [])
+
+  async function doSaveImage(
+    mdFilePath: string,
+    source: { type: 'file'; path: string; name: string } | { type: 'clipboard'; buffer: string; ext: string }
+  ) {
+    const p = prefsRef.current
+    if (!p.imageCopyToAssets) {
+      // sem cópia: usa caminho absoluto (só drag de arquivo)
+      if (source.type === 'file') {
+        insertImageMarkdown(source.path.replace(/\\/g, '/'), source.name)
+      }
+      return
+    }
+
+    const assetsFolder = p.imageAssetsFolder || 'assets'
+    const fileName = source.type === 'file'
+      ? source.name
+      : `image-${timestamp()}.${source.ext}`
+
+    const r = await window.api.saveImage({
+      mdFilePath,
+      assetsFolder,
+      fileName,
+      ...(source.type === 'file'
+        ? { sourcePath: source.path }
+        : { buffer: source.buffer }),
+    })
+
+    if (r.success && r.relativePath) {
+      const alt = source.type === 'file' ? source.name.replace(/\.[^.]+$/, '') : 'imagem'
+      insertImageMarkdown(r.relativePath, alt)
+    } else {
+      alert(`Erro ao salvar imagem: ${r.error ?? 'desconhecido'}`)
+    }
+  }
+
+  // ── Drop de imagem no editor ──────────────────────────────────────────
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+    const files = Array.from(e.dataTransfer.files).filter(f => isImageFile(f.name))
+    if (!files.length) return
+    e.preventDefault()
+    e.stopPropagation()
+    for (const file of files) {
+      // file.path é disponível no Electron renderer
+      const path = (file as File & { path?: string }).path
+      if (path) {
+        await handleImageInsert({ type: 'file', path, name: file.name })
+      }
+    }
+  }, [handleImageInsert])
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    const hasImage = Array.from(e.dataTransfer.items).some(
+      item => item.kind === 'file' && item.type.startsWith('image/')
+    )
+    if (hasImage) e.preventDefault()
+  }, [])
+
+  // ── Paste de imagem do clipboard ──────────────────────────────────────
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = Array.from(e.clipboardData.items)
+    const imageItem = items.find(item => item.type.startsWith('image/'))
+    if (!imageItem) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const blob = imageItem.getAsFile()
+    if (!blob) return
+
+    const ext = imageItem.type === 'image/png' ? 'png'
+      : imageItem.type === 'image/jpeg' ? 'jpg'
+      : imageItem.type === 'image/gif'  ? 'gif'
+      : imageItem.type === 'image/webp' ? 'webp'
+      : 'png'
+
+    // converte blob para base64
+    const buffer = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        resolve(result.split(',')[1]) // remove data:...;base64,
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+
+    await handleImageInsert({ type: 'clipboard', buffer, ext })
+  }, [handleImageInsert])
 
   useEffect(() => {
     window.api.getPrefs().then(p => {
@@ -725,7 +855,13 @@ export default function App(): React.JSX.Element {
               spellCheck={prefs.spellCheck} autoFocus
             />
           ) : (
-            <div className="milkdown-root" ref={milkdownContainerRef}>
+            <div
+              className="milkdown-root"
+              ref={milkdownContainerRef}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onPaste={handlePaste}
+            >
               {frontMatter !== null && <FrontMatterPanel content={frontMatter} />}
               <MilkdownAdapter
                 key={editorKey}

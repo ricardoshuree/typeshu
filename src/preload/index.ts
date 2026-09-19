@@ -1,4 +1,3 @@
-// [mcp-local harness] feature: custom-titlebar | plano: e4a3096f | 2026-09-18
 // +windowMinimize/Maximize/Close/isMaximized + NOTIFY.WIN_MAXIMIZED_CHANGED
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, NOTIFY } from '../shared/types'
@@ -58,6 +57,15 @@ contextBridge.exposeInMainWorld('api', {
   getRecent:         () => ipcRenderer.invoke(IPC.RECENT_GET),
   addRecent:         (filePath: string) => ipcRenderer.invoke(IPC.RECENT_ADD, filePath),
 
+  // Salvar imagem em assets (drag & drop ou clipboard)
+  saveImage: (payload: {
+    mdFilePath: string
+    assetsFolder: string
+    fileName: string
+    buffer?: string
+    sourcePath?: string
+  }) => ipcRenderer.invoke(IPC.IMAGE_SAVE, payload),
+
   // Window controls
   windowMinimize:   () => ipcRenderer.invoke(IPC.WIN_MINIMIZE),
   windowMaximize:   () => ipcRenderer.invoke(IPC.WIN_MAXIMIZE),
@@ -74,9 +82,4 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.removeAllListeners(channel)
     }
   },
-})
-
-// Notifica renderer quando janela é maximizada/restaurada
-ipcRenderer.on('notify:win-maximized-changed', (_e, isMaximized: boolean) => {
-  // reemite para o renderer via o canal de listen
 })

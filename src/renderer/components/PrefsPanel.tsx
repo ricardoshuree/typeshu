@@ -1,19 +1,3 @@
-// [mcp-local harness] feature: preferences-panel | plano: 88f6fdf3 | 2026-09-17 22:19:23
-// PrefsPanel: modal com seções Aparência, Editor e Markdown com preview em tempo real
-/**
- * PrefsPanel.tsx
- *
- * Modal de preferências do TypeShuDown.
- * Abre via Menu File → Preferences ou Ctrl+,
- *
- * Seções:
- *   Aparência  — tema, font size, font family, line height
- *   Editor     — auto-save, auto-pair, spell check
- *   Markdown   — extensões: subscript, superscript, highlight
- *
- * As prefs são aplicadas em tempo real enquanto o usuário ajusta.
- * Persiste via window.api.setPrefs ao fechar.
- */
 import React, { useState, useEffect, useCallback } from 'react'
 import type { UserPreferences } from '@shared/types'
 
@@ -32,16 +16,15 @@ const FONT_FAMILIES = [
   { label: 'Cascadia Code (mono)',      value: "'Cascadia Code', 'Fira Code', monospace" },
 ]
 
-const FONT_SIZES  = [12, 13, 14, 15, 16, 17, 18, 20, 22, 24]
+const FONT_SIZES   = [12, 13, 14, 15, 16, 17, 18, 20, 22, 24]
 const LINE_HEIGHTS = [1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0]
 
-type Section = 'appearance' | 'editor' | 'markdown'
+type Section = 'appearance' | 'editor' | 'markdown' | 'images'
 
 export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React.JSX.Element {
-  const [local, setLocal]       = useState<UserPreferences>(prefs)
-  const [section, setSection]   = useState<Section>('appearance')
+  const [local, setLocal]     = useState<UserPreferences>(prefs)
+  const [section, setSection] = useState<Section>('appearance')
 
-  // Aplica em tempo real
   useEffect(() => { onChange(local) }, [local])
 
   function set<K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) {
@@ -60,18 +43,17 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
     <div className="prefs-overlay" onClick={handleBackdrop} onKeyDown={handleKeyDown}>
       <div className="prefs-modal" role="dialog" aria-label="Preferências">
 
-        {/* Header */}
         <div className="prefs-header">
           <span className="prefs-title">Preferências</span>
           <button className="prefs-close" onClick={onClose} title="Fechar (Esc)">✕</button>
         </div>
 
         <div className="prefs-body">
-          {/* Nav lateral */}
           <nav className="prefs-nav">
             {([
               ['appearance', '🎨', 'Aparência'],
               ['editor',     '⚙️', 'Editor'],
+              ['images',     '🖼️', 'Imagens'],
               ['markdown',   '✳️', 'Markdown'],
             ] as [Section, string, string][]).map(([id, icon, label]) => (
               <button
@@ -85,7 +67,6 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
             ))}
           </nav>
 
-          {/* Conteúdo */}
           <div className="prefs-content">
 
             {/* ── Aparência ── */}
@@ -115,21 +96,14 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                 <div className="prefs-field">
                   <label className="prefs-label">Tamanho da fonte</label>
                   <div className="prefs-row">
-                    <input
-                      type="range" min={12} max={24} step={1}
-                      value={local.fontSize}
-                      onChange={e => set('fontSize', Number(e.target.value))}
-                      className="prefs-range"
-                    />
+                    <input type="range" min={12} max={24} step={1} value={local.fontSize}
+                      onChange={e => set('fontSize', Number(e.target.value))} className="prefs-range" />
                     <span className="prefs-value">{local.fontSize}px</span>
                   </div>
                   <div className="prefs-chips">
                     {FONT_SIZES.map(s => (
-                      <button
-                        key={s}
-                        className={`prefs-chip ${local.fontSize === s ? 'prefs-chip--active' : ''}`}
-                        onClick={() => set('fontSize', s)}
-                      >{s}</button>
+                      <button key={s} className={`prefs-chip ${local.fontSize === s ? 'prefs-chip--active' : ''}`}
+                        onClick={() => set('fontSize', s)}>{s}</button>
                     ))}
                   </div>
                 </div>
@@ -137,30 +111,21 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                 <div className="prefs-field">
                   <label className="prefs-label">Altura da linha</label>
                   <div className="prefs-row">
-                    <input
-                      type="range" min={1.3} max={2.0} step={0.1}
-                      value={local.lineHeight}
-                      onChange={e => set('lineHeight', Number(e.target.value))}
-                      className="prefs-range"
-                    />
+                    <input type="range" min={1.3} max={2.0} step={0.1} value={local.lineHeight}
+                      onChange={e => set('lineHeight', Number(e.target.value))} className="prefs-range" />
                     <span className="prefs-value">{local.lineHeight.toFixed(1)}</span>
                   </div>
                   <div className="prefs-chips">
                     {LINE_HEIGHTS.map(h => (
-                      <button
-                        key={h}
+                      <button key={h}
                         className={`prefs-chip ${Math.abs(local.lineHeight - h) < 0.05 ? 'prefs-chip--active' : ''}`}
-                        onClick={() => set('lineHeight', h)}
-                      >{h.toFixed(1)}</button>
+                        onClick={() => set('lineHeight', h)}>{h.toFixed(1)}</button>
                     ))}
                   </div>
                 </div>
 
-                {/* Preview da fonte */}
-                <div
-                  className="prefs-preview"
-                  style={{ fontFamily: local.fontFamily, fontSize: local.fontSize, lineHeight: local.lineHeight }}
-                >
+                <div className="prefs-preview"
+                  style={{ fontFamily: local.fontFamily, fontSize: local.fontSize, lineHeight: local.lineHeight }}>
                   The quick brown fox jumps over the lazy dog.<br />
                   <strong>Negrito</strong> · <em>Itálico</em> · <code>código inline</code>
                 </div>
@@ -184,12 +149,8 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                   <div className="prefs-field prefs-field--indented">
                     <label className="prefs-label">Intervalo do auto-save</label>
                     <div className="prefs-row">
-                      <input
-                        type="range" min={10} max={120} step={10}
-                        value={local.autoSaveInterval}
-                        onChange={e => set('autoSaveInterval', Number(e.target.value))}
-                        className="prefs-range"
-                      />
+                      <input type="range" min={10} max={120} step={10} value={local.autoSaveInterval}
+                        onChange={e => set('autoSaveInterval', Number(e.target.value))} className="prefs-range" />
                       <span className="prefs-value">{local.autoSaveInterval}s</span>
                     </div>
                   </div>
@@ -199,7 +160,7 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.autoPairDelimiters} onChange={e => set('autoPairDelimiters', e.target.checked)} />
                     <span className="prefs-toggle-label">Auto-pair de delimitadores</span>
-                    <span className="prefs-toggle-desc">Fecha automaticamente ( ) [ ] { } " " ` ` * *</span>
+                    <span className="prefs-toggle-desc">Fecha automaticamente ( ) [ ] {"{ }"} " " ` ` * *</span>
                   </label>
                 </div>
 
@@ -209,6 +170,50 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                     <span className="prefs-toggle-label">Verificação ortográfica</span>
                     <span className="prefs-toggle-desc">Sublinha palavras desconhecidas (requere reinício)</span>
                   </label>
+                </div>
+              </div>
+            )}
+
+            {/* ── Imagens ── */}
+            {section === 'images' && (
+              <div className="prefs-section">
+                <h3 className="prefs-section-title">Imagens</h3>
+
+                <div className="prefs-field">
+                  <label className="prefs-toggle">
+                    <input type="checkbox" checked={local.imageCopyToAssets}
+                      onChange={e => set('imageCopyToAssets', e.target.checked)} />
+                    <span className="prefs-toggle-label">Copiar imagem para pasta de assets</span>
+                    <span className="prefs-toggle-desc">
+                      Ao inserir imagem por drag & drop ou colar, copia o arquivo para uma subpasta ao lado do .md.
+                      Se desligado, usa o caminho absoluto original.
+                    </span>
+                  </label>
+                </div>
+
+                {local.imageCopyToAssets && (
+                  <div className="prefs-field prefs-field--indented">
+                    <label className="prefs-label">Nome da pasta de assets</label>
+                    <input
+                      type="text"
+                      className="link-dialog-input"
+                      value={local.imageAssetsFolder}
+                      placeholder="assets"
+                      onChange={e => {
+                        // só aceita nomes válidos de pasta (sem / \ : * ? " < > |)
+                        const val = e.target.value.replace(/[/\\:*?"<>|]/g, '')
+                        set('imageAssetsFolder', val || 'assets')
+                      }}
+                      style={{ width: '100%', marginTop: 4 }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                      A pasta será criada automaticamente ao lado do arquivo .md aberto.
+                    </span>
+                  </div>
+                )}
+
+                <div className="prefs-md-note">
+                  💡 Sem um arquivo .md salvo, imagens não podem ser inseridas — o app pedirá para salvar primeiro.
                 </div>
               </div>
             )}
@@ -252,7 +257,6 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
           </div>
         </div>
 
-        {/* Footer */}
         <div className="prefs-footer">
           <span className="prefs-footer-hint">Alterações aplicam em tempo real</span>
           <button className="prefs-btn prefs-btn--primary" onClick={onClose}>Fechar</button>
