@@ -478,6 +478,200 @@ html, body, #root {
 .prefs-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .prefs-btn--primary:hover { opacity: 0.85; }
 
+/* ── Callouts ──────────────────────────────────────────────────────────── */
+/*
+ * Estilos para callouts GitHub-style: > [!NOTE], > [!TIP], etc.
+ * Duas variantes:
+ *   .callout--colorful  → fundo colorido + texto colorido (default)
+ *   .callout--minimal   → fundo neutro + borda lateral colorida + título colorido
+ */
+
+/* Paleta de cores por tipo (light) */
+:root {
+  --callout-note-color:      #0969da;
+  --callout-note-bg:         #ddf4ff;
+  --callout-note-border:     #54aeff;
+
+  --callout-tip-color:       #1a7f37;
+  --callout-tip-bg:          #dafbe1;
+  --callout-tip-border:      #4ac26b;
+
+  --callout-important-color: #8250df;
+  --callout-important-bg:    #fbefff;
+  --callout-important-border:#c297ff;
+
+  --callout-warning-color:   #9a6700;
+  --callout-warning-bg:      #fff8c5;
+  --callout-warning-border:  #d4a72c;
+
+  --callout-caution-color:   #d1242f;
+  --callout-caution-bg:      #ffebe9;
+  --callout-caution-border:  #ff8182;
+
+  --callout-info-color:      #0550ae;
+  --callout-info-bg:         #ddf4ff;
+  --callout-info-border:     #54aeff;
+
+  --callout-danger-color:    #b91c1c;
+  --callout-danger-bg:       #fee2e2;
+  --callout-danger-border:   #f87171;
+}
+
+/* Paleta de cores por tipo (dark) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --callout-note-color:      #79c0ff;
+    --callout-note-bg:         #051d4d;
+    --callout-note-border:     #1f6feb;
+
+    --callout-tip-color:       #56d364;
+    --callout-tip-bg:          #04260f;
+    --callout-tip-border:      #238636;
+
+    --callout-important-color: #d2a8ff;
+    --callout-important-bg:    #21103c;
+    --callout-important-border:#8957e5;
+
+    --callout-warning-color:   #e3b341;
+    --callout-warning-bg:      #2d1e00;
+    --callout-warning-border:  #9e6a03;
+
+    --callout-caution-color:   #ff7b72;
+    --callout-caution-bg:      #3d0a10;
+    --callout-caution-border:  #da3633;
+
+    --callout-info-color:      #79c0ff;
+    --callout-info-bg:         #051d4d;
+    --callout-info-border:     #1f6feb;
+
+    --callout-danger-color:    #fca5a5;
+    --callout-danger-bg:       #3d0000;
+    --callout-danger-border:   #dc2626;
+  }
+}
+
+:root[data-theme="dark"] {
+  --callout-note-color:      #79c0ff;
+  --callout-note-bg:         #051d4d;
+  --callout-note-border:     #1f6feb;
+
+  --callout-tip-color:       #56d364;
+  --callout-tip-bg:          #04260f;
+  --callout-tip-border:      #238636;
+
+  --callout-important-color: #d2a8ff;
+  --callout-important-bg:    #21103c;
+  --callout-important-border:#8957e5;
+
+  --callout-warning-color:   #e3b341;
+  --callout-warning-bg:      #2d1e00;
+  --callout-warning-border:  #9e6a03;
+
+  --callout-caution-color:   #ff7b72;
+  --callout-caution-bg:      #3d0a10;
+  --callout-caution-border:  #da3633;
+
+  --callout-info-color:      #79c0ff;
+  --callout-info-bg:         #051d4d;
+  --callout-info-border:     #1f6feb;
+
+  --callout-danger-color:    #fca5a5;
+  --callout-danger-bg:       #3d0000;
+  --callout-danger-border:   #dc2626;
+}
+
+/* Base do callout — substitui o blockquote padrão */
+.callout {
+  margin: 1em 0;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-family: var(--font-ui);
+  font-size: 0.9375em;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.875em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
+}
+
+.callout-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.callout-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.callout-body {
+  color: var(--text);
+}
+
+.callout-body p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.callout-body p + p {
+  margin-top: 0.5em;
+}
+
+/* ── Estilo Colorido ─────────────────────────────────────────────────── */
+
+.callout--colorful.callout--note      { background: var(--callout-note-bg);      border: 1px solid var(--callout-note-border); }
+.callout--colorful.callout--tip       { background: var(--callout-tip-bg);       border: 1px solid var(--callout-tip-border); }
+.callout--colorful.callout--important { background: var(--callout-important-bg); border: 1px solid var(--callout-important-border); }
+.callout--colorful.callout--warning   { background: var(--callout-warning-bg);   border: 1px solid var(--callout-warning-border); }
+.callout--colorful.callout--caution   { background: var(--callout-caution-bg);   border: 1px solid var(--callout-caution-border); }
+.callout--colorful.callout--info      { background: var(--callout-info-bg);      border: 1px solid var(--callout-info-border); }
+.callout--colorful.callout--danger    { background: var(--callout-danger-bg);    border: 1px solid var(--callout-danger-border); }
+
+.callout--colorful.callout--note      .callout-title { color: var(--callout-note-color); }
+.callout--colorful.callout--tip       .callout-title { color: var(--callout-tip-color); }
+.callout--colorful.callout--important .callout-title { color: var(--callout-important-color); }
+.callout--colorful.callout--warning   .callout-title { color: var(--callout-warning-color); }
+.callout--colorful.callout--caution   .callout-title { color: var(--callout-caution-color); }
+.callout--colorful.callout--info      .callout-title { color: var(--callout-info-color); }
+.callout--colorful.callout--danger    .callout-title { color: var(--callout-danger-color); }
+
+/* ── Estilo Minimalista ───────────────────────────────────────────────── */
+
+.callout--minimal {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+}
+
+.callout--minimal.callout--note      { border-left: 4px solid var(--callout-note-border); }
+.callout--minimal.callout--tip       { border-left: 4px solid var(--callout-tip-border); }
+.callout--minimal.callout--important { border-left: 4px solid var(--callout-important-border); }
+.callout--minimal.callout--warning   { border-left: 4px solid var(--callout-warning-border); }
+.callout--minimal.callout--caution   { border-left: 4px solid var(--callout-caution-border); }
+.callout--minimal.callout--info      { border-left: 4px solid var(--callout-info-border); }
+.callout--minimal.callout--danger    { border-left: 4px solid var(--callout-danger-border); }
+
+.callout--minimal.callout--note      .callout-title { color: var(--callout-note-color); }
+.callout--minimal.callout--tip       .callout-title { color: var(--callout-tip-color); }
+.callout--minimal.callout--important .callout-title { color: var(--callout-important-color); }
+.callout--minimal.callout--warning   .callout-title { color: var(--callout-warning-color); }
+.callout--minimal.callout--caution   .callout-title { color: var(--callout-caution-color); }
+.callout--minimal.callout--info      .callout-title { color: var(--callout-info-color); }
+.callout--minimal.callout--danger    .callout-title { color: var(--callout-danger-color); }
+
 /* ── Print ─────────────────────────────────────────────────────────────── */
 @media print {
   .app-shell { display: block; height: auto; overflow: visible; }
