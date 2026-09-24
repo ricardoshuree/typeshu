@@ -1,5 +1,7 @@
-// [mcp-local harness] feature: toolbar-footnote-btn | plano: 2b62e15f | 2026-09-18
-// +insertFootnote(): insere [^N] no cursor e [^N]: no final, move cursor para a definição
+// [mcp-local harness] feature: callout-plugin-files | plano: 3afd3706 | 2026-09-24
+// +calloutStyle prop em MilkdownEditorProps e MilkdownAdapterProps
+// +calloutStyleRef getter-ref pattern (igual currentFileRef)
+// +calloutSlice registrado após footnoteSlice
 import React, { useRef, useImperativeHandle, forwardRef } from 'react'
 import {
   Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx,
@@ -30,6 +32,7 @@ import { createMermaidPlugin }     from './mermaidPlugin'
 import { createShortcutPlugin }    from './shortcutPlugin'
 import { createFindPlugin, findPluginKey } from './findPlugin'
 import { createFootnotePlugin } from './footnotePlugin'
+import { createCalloutPlugin }  from './calloutPlugin'
 import { SIDEBAR_DRAG_KEY } from '../components/Sidebar'
 import type { EditorProps } from './EditorAdapter'
 import 'katex/dist/katex.min.css'
@@ -63,6 +66,7 @@ interface MilkdownEditorProps extends EditorProps {
   onKeyDown?:       (e: KeyboardEvent) => void
   onFindState?:     (matches: number, current: number) => void
   currentFilePath?: string | null
+  calloutStyle?:    'colorful' | 'minimal'
 }
 
 function getView(ctx: Ctx) {
@@ -233,17 +237,19 @@ function createDropPlugin(getCurrentFilePath: () => string | null | undefined): 
 }
 
 const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function MilkdownEditor(
-  { initialContent = '', onChange, readOnly = false, onKeyDown, onFindState, currentFilePath },
+  { initialContent = '', onChange, readOnly = false, onKeyDown, onFindState, currentFilePath, calloutStyle },
   ref
 ) {
   const onChangeRef       = useRef(onChange)
   const onKeyDownRef      = useRef(onKeyDown)
   const onFindStateRef    = useRef(onFindState)
   const currentFileRef    = useRef(currentFilePath)
+  const calloutStyleRef   = useRef(calloutStyle)
   onChangeRef.current     = onChange
   onKeyDownRef.current    = onKeyDown
   onFindStateRef.current  = onFindState
   currentFileRef.current  = currentFilePath
+  calloutStyleRef.current = calloutStyle
 
   const autoPairSlice    = useRef($prose(() => createAutoPairPlugin()))
   const taskListSlice    = useRef($prose(() => createTaskListPlugin()))
@@ -253,6 +259,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
   const findSlice        = useRef($prose(() => createFindPlugin()))
   const dropSlice        = useRef($prose(() => createDropPlugin(() => currentFileRef.current)))
   const footnoteSlice    = useRef($prose(() => createFootnotePlugin()))
+  const calloutSlice     = useRef($prose(() => createCalloutPlugin(() => calloutStyleRef.current)))
 
   const { get } = useEditor((root) =>
     Editor.make()
@@ -286,6 +293,7 @@ const MilkdownEditor = forwardRef<EditorHandle, MilkdownEditorProps>(function Mi
       .use(mermaidSlice.current)
       .use(dropSlice.current)
       .use(footnoteSlice.current)
+      .use(calloutSlice.current)
   )
 
   function dispatchAndNotify(view: any, tr: any) {
@@ -494,6 +502,7 @@ export interface MilkdownAdapterProps extends EditorProps {
   onKeyDown?:       (e: KeyboardEvent) => void
   onFindState?:     (matches: number, current: number) => void
   currentFilePath?: string | null
+  calloutStyle?:    'colorful' | 'minimal'
 }
 
 export function MilkdownAdapter({ editorRef, ...props }: MilkdownAdapterProps): React.JSX.Element {

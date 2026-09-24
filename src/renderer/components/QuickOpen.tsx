@@ -1,19 +1,8 @@
 // [mcp-local harness] feature: open-quickly | plano: 91e7f8b1 | 2026-09-17 15:07:55
-// Componente QuickOpen: modal fuzzy de busca de arquivos com teclado e highlight
-/**
- * QuickOpen.tsx
- *
- * Modal de busca fuzzy de arquivos — abre com Ctrl+P, fecha com Esc.
- *
- * Comportamento:
- * - Lista todos os arquivos .md/.txt da pasta aberta (recursivo até 3 níveis)
- * - Filtra em tempo real enquanto o usuário digita (busca fuzzy por nome)
- * - Navegação com ↑/↓, seleção com Enter ou clique
- * - Mostra o path relativo como descrição
- * - Fecha ao clicar fora do modal (backdrop)
- */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import type { FileEntry, DirListResult } from '@shared/types'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 declare const window: Window & {
   api: {
@@ -23,18 +12,18 @@ declare const window: Window & {
 }
 
 interface QuickOpenProps {
-  dirPath:    string | null    // pasta raiz para buscar arquivos
+  dirPath:    string | null
   onOpen:     (path: string, content: string) => void
   onClose:    () => void
+  locale:     Locale
 }
 
 interface FileItem {
   name:         string
   path:         string
-  relativePath: string   // para exibição
+  relativePath: string
 }
 
-// ── Busca recursiva de arquivos ──────────────────────────────────────────
 async function collectFiles(
   dirPath: string,
   rootPath: string,
@@ -57,7 +46,7 @@ async function collectFiles(
     } else if (SUPPORTED.test(entry.name)) {
       const relativePath = entry.path
         .replace(rootPath, '')
-        .replace(/^[\\/]/, '')
+        .replace(/^[\\\/]/, '')
         .replace(/\\/g, '/')
       items.push({ name: entry.name, path: entry.path, relativePath })
     }
@@ -65,41 +54,32 @@ async function collectFiles(
   return items
 }
 
-// ── Fuzzy match: retorna score (maior = melhor) ou -1 se não bate ────────
 function fuzzyScore(query: string, target: string): number {
   if (!query) return 0
   const q = query.toLowerCase()
-  const t = target.toLowerCase()
-
-  // Match exato no nome
-  if (t.includes(q)) return 100 - t.indexOf(q)
-
-  // Fuzzy: todos os chars do query aparecem em ordem no target
-  let qi = 0
-  let score = 0
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) { qi++; score++ }
+  const tl = target.toLowerCase()
+  if (tl.includes(q)) return 100 - tl.indexOf(q)
+  let qi = 0; let score = 0
+  for (let ti = 0; ti < tl.length && qi < q.length; ti++) {
+    if (tl[ti] === q[qi]) { qi++; score++ }
   }
   return qi === q.length ? score : -1
 }
 
-// ── Componente ───────────────────────────────────────────────────────────
-export function QuickOpen({ dirPath, onOpen, onClose }: QuickOpenProps): React.JSX.Element {
+export function QuickOpen({ dirPath, onOpen, onClose, locale }: QuickOpenProps): React.JSX.Element {
   const [query,    setQuery]    = useState('')
   const [files,    setFiles]    = useState<FileItem[]>([])
   const [filtered, setFiltered] = useState<FileItem[]>([])
   const [selected, setSelected] = useState(0)
   const [loading,  setLoading]  = useState(true)
 
-  const inputRef   = useRef<HTMLInputElement>(null)
-  const listRef    = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef  = useRef<HTMLDivElement>(null)
 
-  // ── Carrega arquivos da pasta ──────────────────────────────────────────
   useEffect(() => {
     if (!dirPath) { setLoading(false); return }
     setLoading(true)
     collectFiles(dirPath, dirPath).then((items) => {
-      // Ordena alfabeticamente por nome
       items.sort((a, b) => a.name.localeCompare(b.name))
       setFiles(items)
       setFiltered(items)
@@ -107,13 +87,8 @@ export function QuickOpen({ dirPath, onOpen, onClose }: QuickOpenProps): React.J
     })
   }, [dirPath])
 
-  // ── Filtra enquanto digita ─────────────────────────────────────────────
   useEffect(() => {
-    if (!query.trim()) {
-      setFiltered(files)
-      setSelected(0)
-      return
-    }
+    if (!query.trim()) { setFiltered(files); setSelected(0); return }
     const scored = files
       .map(f => ({ file: f, score: fuzzyScore(query, f.name) + fuzzyScore(query, f.relativePath) * 0.5 }))
       .filter(x => x.score >= 0)
@@ -123,18 +98,13 @@ export function QuickOpen({ dirPath, onOpen, onClose }: QuickOpenProps): React.J
     setSelected(0)
   }, [query, files])
 
-  // ── Foco no input ao abrir ─────────────────────────────────────────────
-  useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 50)
-  }, [])
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 50) }, [])
 
-  // ── Scroll do item selecionado ─────────────────────────────────────────
   useEffect(() => {
     const item = listRef.current?.children[selected] as HTMLElement | undefined
     item?.scrollIntoView({ block: 'nearest' })
   }, [selected])
 
-  // ── Abre o arquivo selecionado ─────────────────────────────────────────
   const openSelected = useCallback(async (idx: number) => {
     const file = filtered[idx]
     if (!file) return
@@ -145,27 +115,13 @@ export function QuickOpen({ dirPath, onOpen, onClose }: QuickOpenProps): React.J
     onClose()
   }, [filtered, onOpen, onClose])
 
-  // ── Teclado ────────────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelected(v => Math.min(v + 1, filtered.length - 1))
-      return
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelected(v => Math.max(v - 1, 0))
-      return
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      openSelected(selected)
-      return
-    }
+    if (e.key === 'Escape')    { e.preventDefault(); onClose(); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected(v => Math.min(v + 1, filtered.length - 1)); return }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setSelected(v => Math.max(v - 1, 0)); return }
+    if (e.key === 'Enter')     { e.preventDefault(); openSelected(selected); return }
   }, [filtered, selected, onClose, openSelected])
 
-  // ── Highlight do match ─────────────────────────────────────────────────
   function highlight(text: string, q: string): React.ReactNode {
     if (!q.trim()) return text
     const idx = text.toLowerCase().indexOf(q.toLowerCase())
@@ -179,33 +135,32 @@ export function QuickOpen({ dirPath, onOpen, onClose }: QuickOpenProps): React.J
     )
   }
 
+  const fileCount = filtered.length
+  const fileLabel = fileCount === 1 ? t('qo.file', locale) : t('qo.filePlural', locale)
+
   return (
     <div className="qo-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="qo-modal" onKeyDown={handleKeyDown}>
-        {/* Input de busca */}
         <div className="qo-input-wrap">
           <span className="qo-icon">⌕</span>
           <input
             ref={inputRef}
             className="qo-input"
-            placeholder="Buscar arquivo..."
+            placeholder={t('qo.placeholder', locale)}
             value={query}
             onChange={e => setQuery(e.target.value)}
             spellCheck={false}
           />
-          <span className="qo-hint">Esc para fechar</span>
+          <span className="qo-hint">{t('qo.escHint', locale)}</span>
         </div>
 
-        {/* Lista de resultados */}
         <div className="qo-list" ref={listRef}>
-          {loading && (
-            <div className="qo-empty">Carregando arquivos...</div>
-          )}
+          {loading && <div className="qo-empty">{t('qo.loading', locale)}</div>}
           {!loading && filtered.length === 0 && (
             <div className="qo-empty">
               {files.length === 0
-                ? 'Nenhuma pasta aberta. Abra uma pasta na sidebar primeiro.'
-                : `Nenhum resultado para "${query}"`}
+                ? t('qo.noFolder', locale)
+                : `${t('qo.noResults', locale)} "${query}"`}
             </div>
           )}
           {!loading && filtered.map((file, i) => (
@@ -221,11 +176,10 @@ export function QuickOpen({ dirPath, onOpen, onClose }: QuickOpenProps): React.J
           ))}
         </div>
 
-        {/* Rodapé */}
         {!loading && filtered.length > 0 && (
           <div className="qo-footer">
-            {filtered.length} arquivo{filtered.length !== 1 ? 's' : ''}
-            <span className="qo-footer-keys">↑↓ navegar · Enter abrir</span>
+            {fileCount} {fileLabel}
+            <span className="qo-footer-keys">{t('qo.navHint', locale)}</span>
           </div>
         )}
       </div>

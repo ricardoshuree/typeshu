@@ -1,5 +1,7 @@
 import React, { useRef } from 'react'
 import type { TabState } from '@shared/types'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 interface TabBarProps {
   tabs:        TabState[]
@@ -7,14 +9,15 @@ interface TabBarProps {
   onSwitch:    (id: string) => void
   onClose:     (id: string) => void
   onReorder:   (fromIndex: number, toIndex: number) => void
+  locale:      Locale
 }
 
-function tabLabel(tab: TabState): string {
-  if (!tab.filePath) return 'Untitled'
-  return tab.filePath.split(/[\\/]/).pop() ?? 'Untitled'
+function tabLabel(tab: TabState, locale: Locale): string {
+  if (!tab.filePath) return t('tab.untitled', locale)
+  return tab.filePath.split(/[\\\/]/).pop() ?? t('tab.untitled', locale)
 }
 
-export function TabBar({ tabs, activeTabId, onSwitch, onClose, onReorder }: TabBarProps): React.JSX.Element {
+export function TabBar({ tabs, activeTabId, onSwitch, onClose, onReorder, locale }: TabBarProps): React.JSX.Element {
   const dragIndexRef = useRef<number | null>(null)
 
   function handleDragStart(e: React.DragEvent, index: number) {
@@ -62,16 +65,16 @@ export function TabBar({ tabs, activeTabId, onSwitch, onClose, onReorder }: TabB
             onDrop={e => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             onClick={() => onSwitch(tab.id)}
-            title={tab.filePath ?? 'Untitled'}
+            title={tab.filePath ?? t('tab.untitled', locale)}
           >
             <span className="tab-label">
               {tab.isDirty && <span className="tab-dirty">●</span>}
-              {tabLabel(tab)}
+              {tabLabel(tab, locale)}
             </span>
             <button
               className="tab-close"
               onClick={e => { e.stopPropagation(); onClose(tab.id) }}
-              title="Fechar aba"
+              title={t('tab.close', locale)}
             >
               ×
             </button>

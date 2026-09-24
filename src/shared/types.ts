@@ -53,6 +53,8 @@ export interface UserPreferences {
   mdHighlight:          boolean
   imageCopyToAssets:    boolean   // copia imagem inserida para pasta de assets
   imageAssetsFolder:    string    // nome da subpasta (default: 'assets')
+  calloutStyle:         'colorful' | 'minimal' // estilo de renderização dos callouts
+  locale:               'pt-BR' | 'en'         // idioma da interface
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -71,6 +73,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   mdHighlight:        false,
   imageCopyToAssets:  true,
   imageAssetsFolder:  'assets',
+  calloutStyle:       'colorful',
+  locale:             'pt-BR',
 }
 
 // Estado de uma aba individual

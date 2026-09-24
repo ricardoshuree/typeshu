@@ -14,40 +14,12 @@ import { LinkDialog } from './components/LinkDialog'
 import { FindBar } from './components/FindBar'
 import { PrefsPanel } from './components/PrefsPanel'
 import { IPC, NOTIFY, DEFAULT_PREFERENCES, type UserPreferences, type RecentFile, type TabState } from '@shared/types'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 const AUTO_SAVE_INTERVAL_DEFAULT = 30_000
 
-const WELCOME_MD = `# Bem-vindo ao TypeShu
-
-Este é um editor Markdown com **live preview** — o que você digita é renderizado instantaneamente.
-
-## Começando
-
-- Abra um arquivo com \`Ctrl+O\`
-- Busca rápida com \`Ctrl+P\`
-- Busca no documento com \`Ctrl+F\`
-- Substituir no documento com \`Ctrl+H\`
-- Busca em arquivos com \`Ctrl+Shift+F\`
-- Toggle sidebar com \`Ctrl+Shift+L\`
-- Salve com \`Ctrl+S\`
-- Preferências com \`Ctrl+,\`
-
-## Formatação
-
-| Ação | Atalho |
-|---|---|
-| **Negrito** | Ctrl+B |
-| *Itálico* | Ctrl+I |
-| ~~Riscado~~ | Alt+Shift+5 |
-| [Link](#) | Ctrl+K |
-| Código | Ctrl+Shift+K |
-| > Blockquote | Ctrl+Shift+Q |
-| Bullet list | Ctrl+Shift+[ |
-| Ordered list | Ctrl+Shift+] |
-| Tabela | Ctrl+T |
-
-> Comece a digitar aqui ou abra um arquivo existente.
-`
+const WELCOME_MD = `# Bem-vindo ao TypeShu\n\nEste é um editor Markdown com **live preview** — o que você digita é renderizado instantaneamente.\n\n## Começando\n\n- Abra um arquivo com \`Ctrl+O\`\n- Busca rápida com \`Ctrl+P\`\n- Busca no documento com \`Ctrl+F\`\n- Substituir no documento com \`Ctrl+H\`\n- Busca em arquivos com \`Ctrl+Shift+F\`\n- Toggle sidebar com \`Ctrl+Shift+L\`\n- Salve com \`Ctrl+S\`\n- Preferências com \`Ctrl+,\`\n\n## Formatação\n\n| Ação | Atalho |\n|---|---|\n| **Negrito** | Ctrl+B |\n| *Itálico* | Ctrl+I |\n| ~~Riscado~~ | Alt+Shift+5 |\n| [Link](#) | Ctrl+K |\n| Código | Ctrl+Shift+K |\n| > Blockquote | Ctrl+Shift+Q |\n| Bullet list | Ctrl+Shift+[ |\n| Ordered list | Ctrl+Shift+] |\n| Tabela | Ctrl+T |\n\n> Comece a digitar aqui ou abra um arquivo existente.\n`
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'])
 
@@ -98,8 +70,8 @@ function applyPrefsToCSS(prefs: UserPreferences) {
   else                               root.removeAttribute('data-theme')
 }
 
-function countWords(t: string) { return t.trim() === '' ? 0 : t.trim().split(/\s+/).length }
-function countChars(t: string) { return t.replace(/\r\n/g, '\n').length }
+function countWords(tx: string) { return tx.trim() === '' ? 0 : tx.trim().split(/\s+/).length }
+function countChars(tx: string) { return tx.replace(/\r\n/g, '\n').length }
 function readingTime(w: number) { const m = Math.ceil(w / 200); return m <= 1 ? '< 1 min' : `${m} min` }
 
 function makeId(): string {
@@ -110,28 +82,28 @@ function makeUntitledTab(): TabState {
   return { id: makeId(), filePath: null, content: '', isDirty: false, scrollTop: 0 }
 }
 
-interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean; autoSaved: boolean }
-function StatusBar({ content, filePath, isDirty, autoSaved }: StatusBarProps): React.JSX.Element {
+interface StatusBarProps { content: string; filePath: string | null; isDirty: boolean; autoSaved: boolean; locale: Locale }
+function StatusBar({ content, filePath, isDirty, autoSaved, locale }: StatusBarProps): React.JSX.Element {
   const words = countWords(content); const chars = countChars(content); const time = readingTime(words)
-  const name = filePath ? filePath.split(/[\\/]/).pop() : 'Sem título'
+  const name = filePath ? filePath.split(/[\\\/]/).pop() : t('status.untitled', locale)
   return (
     <div className="status-bar">
       <span className="status-file">
         {isDirty ? '● ' : ''}{name}
-        {autoSaved && <span className="status-autosaved"> ✓ salvo</span>}
+        {autoSaved && <span className="status-autosaved"> {t('status.saved', locale)}</span>}
       </span>
-      <span className="status-counts">{words.toLocaleString()} palavras · {chars.toLocaleString()} chars · {time}</span>
+      <span className="status-counts">{words.toLocaleString()} {t('status.words', locale)} · {chars.toLocaleString()} {t('status.chars', locale)} · {time}</span>
     </div>
   )
 }
 
-interface ExternalChangeBannerProps { onReload: () => void; onDismiss: () => void }
-function ExternalChangeBanner({ onReload, onDismiss }: ExternalChangeBannerProps): React.JSX.Element {
+interface ExternalChangeBannerProps { onReload: () => void; onDismiss: () => void; locale: Locale }
+function ExternalChangeBanner({ onReload, onDismiss, locale }: ExternalChangeBannerProps): React.JSX.Element {
   return (
     <div className="external-change-banner">
-      <span className="external-change-msg">⚠ Arquivo modificado externamente.</span>
-      <button className="external-change-btn external-change-btn--primary" onClick={onReload}>Recarregar</button>
-      <button className="external-change-btn" onClick={onDismiss}>Ignorar</button>
+      <span className="external-change-msg">{t('banner.msg', locale)}</span>
+      <button className="external-change-btn external-change-btn--primary" onClick={onReload}>{t('banner.reload', locale)}</button>
+      <button className="external-change-btn" onClick={onDismiss}>{t('banner.dismiss', locale)}</button>
     </div>
   )
 }
@@ -192,6 +164,9 @@ export default function App(): React.JSX.Element {
   useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
   useEffect(() => { prefsRef.current = prefs },             [prefs])
 
+  // Locale derivado das prefs — usado em todo o render
+  const locale: Locale = prefs.locale ?? 'pt-BR'
+
   function getActiveTab(): TabState | undefined {
     return tabsRef.current.find(t => t.id === activeTabIdRef.current)
   }
@@ -218,7 +193,6 @@ export default function App(): React.JSX.Element {
     }, 80)
   }
 
-  // ── Inserir imagem no editor ──────────────────────────────────────────
   const insertImageMarkdown = useCallback((relPath: string, altText: string) => {
     const md = `![${altText}](${relPath})`
     editorRef.current?.replaceSelectionWith(md)
@@ -229,18 +203,17 @@ export default function App(): React.JSX.Element {
   ) => {
     const tab = getActiveTab()
     if (!tab?.filePath) {
-      const ok = confirm('Para inserir imagens, salve o arquivo primeiro.\n\nDeseja salvar agora?')
+      const ok = confirm(t('ab.saveFirstMsg', prefsRef.current.locale ?? 'pt-BR'))
       if (!ok) return
       const r = await window.api.saveFileAs(editorContentRef.current)
       if (!r.success || !r.path) return
       setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? { ...t, filePath: r.path!, isDirty: false } : t))
       window.api.watchStart(r.path)
-      // após salvar, tenta de novo com o novo path
-      const newTab = { ...tab, filePath: r.path! }
-      await doSaveImage(newTab.filePath, source)
+      await doSaveImage(r.path, source)
       return
     }
     await doSaveImage(tab.filePath, source)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function doSaveImage(
@@ -249,7 +222,6 @@ export default function App(): React.JSX.Element {
   ) {
     const p = prefsRef.current
     if (!p.imageCopyToAssets) {
-      // sem cópia: usa caminho absoluto (só drag de arquivo)
       if (source.type === 'file') {
         insertImageMarkdown(source.path.replace(/\\/g, '/'), source.name)
       }
@@ -274,18 +246,16 @@ export default function App(): React.JSX.Element {
       const alt = source.type === 'file' ? source.name.replace(/\.[^.]+$/, '') : 'imagem'
       insertImageMarkdown(r.relativePath, alt)
     } else {
-      alert(`Erro ao salvar imagem: ${r.error ?? 'desconhecido'}`)
+      alert(`${t('ab.imageError', prefsRef.current.locale ?? 'pt-BR')}: ${r.error ?? t('ab.imageErrorUnknown', prefsRef.current.locale ?? 'pt-BR')}`)
     }
   }
 
-  // ── Drop de imagem no editor ──────────────────────────────────────────
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     const files = Array.from(e.dataTransfer.files).filter(f => isImageFile(f.name))
     if (!files.length) return
     e.preventDefault()
     e.stopPropagation()
     for (const file of files) {
-      // file.path é disponível no Electron renderer
       const path = (file as File & { path?: string }).path
       if (path) {
         await handleImageInsert({ type: 'file', path, name: file.name })
@@ -300,7 +270,6 @@ export default function App(): React.JSX.Element {
     if (hasImage) e.preventDefault()
   }, [])
 
-  // ── Paste de imagem do clipboard ──────────────────────────────────────
   const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLDivElement>) => {
     const items = Array.from(e.clipboardData.items)
     const imageItem = items.find(item => item.type.startsWith('image/'))
@@ -317,12 +286,11 @@ export default function App(): React.JSX.Element {
       : imageItem.type === 'image/webp' ? 'webp'
       : 'png'
 
-    // converte blob para base64
     const buffer = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => {
         const result = reader.result as string
-        resolve(result.split(',')[1]) // remove data:...;base64,
+        resolve(result.split(',')[1])
       }
       reader.onerror = reject
       reader.readAsDataURL(blob)
@@ -398,7 +366,7 @@ export default function App(): React.JSX.Element {
     const updated = await window.api.addRecent(path)
     setRecentFiles(updated)
     mountTab(newTab)
-    setCurrentDirPath(path.replace(/[\\/][^\\/]+$/, ''))
+    setCurrentDirPath(path.replace(/[\\\/][^\\\/]+$/, ''))
   }, [])
 
   const switchTab = useCallback((id: string) => {
@@ -413,7 +381,7 @@ export default function App(): React.JSX.Element {
       if (tab.filePath) {
         window.api.watchStop()
         window.api.watchStart(tab.filePath)
-        setCurrentDirPath(tab.filePath.replace(/[\\/][^\\/]+$/, ''))
+        setCurrentDirPath(tab.filePath.replace(/[\\\/][^\\\/]+$/, ''))
       }
     }
   }, [])
@@ -450,8 +418,9 @@ export default function App(): React.JSX.Element {
     }
 
     if (target.isDirty) {
-      const name = target.filePath ? target.filePath.split(/[\\/]/).pop() : 'Untitled'
-      const save = confirm(`"${name}" tem alterações não salvas.\nSalvar antes de fechar?`)
+      const loc = prefsRef.current.locale ?? 'pt-BR'
+      const name = target.filePath ? target.filePath.split(/[\\\/]/).pop() : t('tab.untitled', loc)
+      const save = confirm(`"${name}" ${t('confirm.unsavedMsg', loc)}`)
       if (save) {
         if (target.filePath) {
           window.api.saveFile(target.filePath, target.content).then(r => { if (r.success) doClose() })
@@ -647,7 +616,7 @@ export default function App(): React.JSX.Element {
       case 'ui:open-quickly':   setQuickOpenVisible(true); break
       case 'ui:global-search':  setGlobalSearchVisible(true); setSidebarOpen(true); break
       case 'ui:export-pdf':     window.print(); break
-      case 'ui:export-html':    exportHTML(activeTab?.filePath?.split(/[\\/]/).pop() ?? 'documento'); break
+      case 'ui:export-html':    exportHTML(activeTab?.filePath?.split(/[\\\/]/).pop() ?? 'documento'); break
       case 'ui:preferences':    setPrefsVisible(true); break
       case 'ui:find':           openFind(); break
       case 'ui:replace':        openReplace(); break
@@ -756,10 +725,10 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     const activeTab = tabs.find(t => t.id === activeTabId)
-    const name = activeTab?.filePath ? activeTab.filePath.split(/[\\/]/).pop() : 'Sem título'
+    const name = activeTab?.filePath ? activeTab.filePath.split(/[\\\/]/).pop() : t('status.untitled', locale)
     const dirty = activeTab?.isDirty ? '● ' : ''
     document.title = `${dirty}${name} — TypeShu`
-  }, [tabs, activeTabId])
+  }, [tabs, activeTabId, locale])
 
   const activeTab      = tabs.find(t => t.id === activeTabId)
   const activeFilePath = activeTab?.filePath ?? null
@@ -774,7 +743,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className={shellClass}>
-      <TitleBar onAction={handleTitleBarAction} />
+      <TitleBar onAction={handleTitleBarAction} locale={locale} />
 
       <div className="app-body">
         <ActivityBar
@@ -782,6 +751,7 @@ export default function App(): React.JSX.Element {
           onToggleSidebar={() => setSidebarOpen(v => !v)}
           onQuickOpen={() => setQuickOpenVisible(true)}
           onPrefs={() => setPrefsVisible(true)}
+          locale={locale}
         />
 
         {sidebarOpen && (
@@ -791,6 +761,7 @@ export default function App(): React.JSX.Element {
                 dirPath={currentDirPath}
                 onOpen={(path, content) => { openInTab(path, content); setGlobalSearchVisible(false) }}
                 onClose={() => setGlobalSearchVisible(false)}
+                locale={locale}
               />
             </div>
           ) : (
@@ -802,6 +773,7 @@ export default function App(): React.JSX.Element {
               onDirChange={handleDirChange}
               onFileDelete={handleFileDelete}
               onFileRename={handleFileRename}
+              locale={locale}
             />
           )
         )}
@@ -813,6 +785,7 @@ export default function App(): React.JSX.Element {
             onSwitch={switchTab}
             onClose={closeTab}
             onReorder={reorderTabs}
+            locale={locale}
           />
 
           {activeFilePath && (
@@ -823,6 +796,7 @@ export default function App(): React.JSX.Element {
               onInsertFootnote={() => editorRef.current?.insertFootnote()}
               sourceMode={sourceMode}
               onToggleSource={() => setSourceMode(v => !v)}
+              locale={locale}
             />
           )}
 
@@ -830,6 +804,7 @@ export default function App(): React.JSX.Element {
             <ExternalChangeBanner
               onReload={handleReloadExternal}
               onDismiss={() => setExternalChanged(false)}
+              locale={locale}
             />
           )}
           {findVisible && (
@@ -838,6 +813,7 @@ export default function App(): React.JSX.Element {
               onFind={handleFind} onNext={handleFindNext} onPrev={handleFindPrev}
               onReplaceOne={handleReplaceOne} onReplaceAll={handleReplaceAll}
               onClose={closeFind} matchCount={findMatches} currentMatch={findCurrent}
+              locale={locale}
             />
           )}
           {sourceMode ? (
@@ -871,6 +847,7 @@ export default function App(): React.JSX.Element {
                 onChange={handleChange}
                 onFindState={handleFindState}
                 currentFilePath={activeFilePath}
+                calloutStyle={prefs.calloutStyle}
               />
             </div>
           )}
@@ -882,6 +859,7 @@ export default function App(): React.JSX.Element {
         filePath={activeFilePath}
         isDirty={activeIsDirty}
         autoSaved={autoSaved}
+        locale={locale}
       />
 
       {!sourceMode && (
@@ -895,12 +873,13 @@ export default function App(): React.JSX.Element {
           onLink={openLinkDialog}
           onBlockquote={() => editorRef.current?.toggleBlockquote()}
           onHeading={(lvl) => editorRef.current?.setHeading(lvl)}
+          locale={locale}
         />
       )}
 
-      {quickOpenVisible   && <QuickOpen dirPath={currentDirPath} onOpen={openInTab} onClose={() => setQuickOpenVisible(false)} />}
-      {linkDialogVisible  && <LinkDialog initialLabel={linkInitialLabel} onConfirm={handleLinkConfirm} onClose={() => setLinkDialogVisible(false)} />}
-      {prefsVisible       && <PrefsPanel prefs={prefs} onChange={handlePrefsChange} onClose={handlePrefsClose} />}
+      {quickOpenVisible   && <QuickOpen dirPath={currentDirPath} onOpen={openInTab} onClose={() => setQuickOpenVisible(false)} locale={locale} />}
+      {linkDialogVisible  && <LinkDialog initialLabel={linkInitialLabel} onConfirm={handleLinkConfirm} onClose={() => setLinkDialogVisible(false)} locale={locale} />}
+      {prefsVisible       && <PrefsPanel prefs={prefs} onChange={handlePrefsChange} onClose={handlePrefsClose} locale={locale} />}
     </div>
   )
 }

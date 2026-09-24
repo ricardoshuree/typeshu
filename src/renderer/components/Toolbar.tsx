@@ -1,4 +1,6 @@
 import React from 'react'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 export interface ToolbarProps {
   onBulletList:     () => void
@@ -7,28 +9,29 @@ export interface ToolbarProps {
   onInsertFootnote: () => void
   sourceMode:       boolean
   onToggleSource:   () => void
+  locale:           Locale
 }
 
 export function Toolbar({
   onBulletList, onOrderedList, onInsertTable, onInsertFootnote,
-  sourceMode, onToggleSource,
+  sourceMode, onToggleSource, locale,
 }: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar">
-      <button className="tb-btn tb-btn--icon" onClick={onBulletList} title="Bullet List (Ctrl+Shift+[)" aria-label="Bullet List">
+      <button className="tb-btn tb-btn--icon" onClick={onBulletList} title={t('toolbar.bulletList', locale)} aria-label={t('toolbar.bulletList', locale)}>
         <TbIconBulletList />
       </button>
-      <button className="tb-btn tb-btn--icon" onClick={onOrderedList} title="Ordered List (Ctrl+Shift+])" aria-label="Ordered List">
+      <button className="tb-btn tb-btn--icon" onClick={onOrderedList} title={t('toolbar.orderedList', locale)} aria-label={t('toolbar.orderedList', locale)}>
         <TbIconOrderedList />
       </button>
-      <button className="tb-btn tb-btn--icon" onClick={onInsertTable} title="Insert Table (Ctrl+T)" aria-label="Insert Table">
+      <button className="tb-btn tb-btn--icon" onClick={onInsertTable} title={t('toolbar.table', locale)} aria-label={t('toolbar.table', locale)}>
         <TbIconTable />
       </button>
       <button
         className="tb-btn"
         onClick={onInsertFootnote}
-        title="Insert Footnote"
-        aria-label="Insert Footnote"
+        title={t('toolbar.footnote', locale)}
+        aria-label={t('toolbar.footnote', locale)}
         style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '-0.02em', padding: '0 6px', minWidth: 32 }}
       >
         [^1]
@@ -39,11 +42,11 @@ export function Toolbar({
       <button
         className={`tb-btn${sourceMode ? ' tb-btn--active' : ''}`}
         onClick={onToggleSource}
-        title="Toggle Source Mode (Ctrl+/)"
-        aria-label="Toggle Source Mode"
+        title={t('toolbar.source', locale)}
+        aria-label={t('toolbar.source', locale)}
         style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '-0.02em', padding: '0 8px', minWidth: 'auto', whiteSpace: 'nowrap' }}
       >
-        {sourceMode ? 'Mark Render' : 'Mark Source'}
+        {sourceMode ? t('toolbar.markRender', locale) : t('toolbar.markSource', locale)}
       </button>
     </div>
   )

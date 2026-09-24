@@ -1,20 +1,8 @@
 // [mcp-local harness] feature: global-search | plano: f149f65d | 2026-09-17 15:33:35
-// Componente GlobalSearch: painel lateral com busca debounced, resultados agrupados por arquivo, highlight e navegação por clique
-/**
- * GlobalSearch.tsx
- *
- * Painel de busca de texto em todos os arquivos da pasta.
- * Abre via Ctrl+Shift+F, fecha com Esc ou clicando no X.
- *
- * Comportamento:
- * - Input de busca com debounce de 300ms
- * - Resultados agrupados por arquivo
- * - Cada resultado mostra o número da linha e o trecho com highlight
- * - Clique em um resultado abre o arquivo e tenta rolar até a linha
- * - Toggle case-sensitive
- */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import type { SearchResult, SearchFileResult, SearchMatch } from '@shared/types'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 declare const window: Window & {
   api: {
@@ -27,11 +15,10 @@ interface GlobalSearchProps {
   dirPath:  string | null
   onOpen:   (path: string, content: string) => void
   onClose:  () => void
+  locale:   Locale
 }
 
-// ── Highlight de match na linha ──────────────────────────────────────────
 function HighlightMatch({ text, start, end }: { text: string; start: number; end: number }): React.JSX.Element {
-  // Garante bounds válidos
   const s = Math.max(0, Math.min(start, text.length))
   const e = Math.max(s, Math.min(end, text.length))
   return (
@@ -43,7 +30,6 @@ function HighlightMatch({ text, start, end }: { text: string; start: number; end
   )
 }
 
-// ── Grupo de resultados de um arquivo ────────────────────────────────────
 interface FileResultGroupProps {
   result:       SearchFileResult
   onMatchClick: (filePath: string, lineNumber: number) => void
@@ -52,7 +38,6 @@ interface FileResultGroupProps {
 
 function FileResultGroup({ result, onMatchClick, defaultOpen }: FileResultGroupProps): React.JSX.Element {
   const [open, setOpen] = useState(defaultOpen)
-
   return (
     <div className="gs-file-group">
       <div className="gs-file-header" onClick={() => setOpen(v => !v)}>
@@ -64,17 +49,9 @@ function FileResultGroup({ result, onMatchClick, defaultOpen }: FileResultGroupP
       {open && (
         <div className="gs-matches">
           {result.matches.map((match: SearchMatch, i: number) => (
-            <div
-              key={i}
-              className="gs-match-row"
-              onClick={() => onMatchClick(result.filePath, match.lineNumber)}
-            >
+            <div key={i} className="gs-match-row" onClick={() => onMatchClick(result.filePath, match.lineNumber)}>
               <span className="gs-line-num">{match.lineNumber}</span>
-              <HighlightMatch
-                text={match.lineText}
-                start={match.matchStart}
-                end={match.matchEnd}
-              />
+              <HighlightMatch text={match.lineText} start={match.matchStart} end={match.matchEnd} />
             </div>
           ))}
         </div>
@@ -83,8 +60,7 @@ function FileResultGroup({ result, onMatchClick, defaultOpen }: FileResultGroupP
   )
 }
 
-// ── Componente principal ─────────────────────────────────────────────────
-export function GlobalSearch({ dirPath, onOpen, onClose }: GlobalSearchProps): React.JSX.Element {
+export function GlobalSearch({ dirPath, onOpen, onClose, locale }: GlobalSearchProps): React.JSX.Element {
   const [query,         setQuery]         = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [result,        setResult]        = useState<SearchResult | null>(null)
@@ -93,10 +69,8 @@ export function GlobalSearch({ dirPath, onOpen, onClose }: GlobalSearchProps): R
   const inputRef    = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Foco ao abrir
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 50) }, [])
 
-  // Busca com debounce
   const runSearch = useCallback(async (q: string, cs: boolean) => {
     if (!dirPath || !q.trim()) { setResult(null); setSearching(false); return }
     setSearching(true)
@@ -104,11 +78,11 @@ export function GlobalSearch({ dirPath, onOpen, onClose }: GlobalSearchProps): R
       const r = await window.api.searchFiles(dirPath, q, cs)
       setResult(r)
     } catch {
-      setResult({ success: false, query: q, results: [], total: 0, error: 'Erro na busca' })
+      setResult({ success: false, query: q, results: [], total: 0, error: t('gs.error', locale) })
     } finally {
       setSearching(false)
     }
-  }, [dirPath])
+  }, [dirPath, locale])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -116,17 +90,14 @@ export function GlobalSearch({ dirPath, onOpen, onClose }: GlobalSearchProps): R
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, caseSensitive, runSearch])
 
-  // Esc fecha
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose() }
   }, [onClose])
 
-  // Abre arquivo e tenta rolar até a linha
   const handleMatchClick = useCallback(async (filePath: string, lineNumber: number) => {
     const r = await window.api.openPath(filePath)
     if (r.success && r.content !== undefined && r.path) {
       onOpen(r.path, r.content)
-      // Aguarda o editor montar e tenta rolar até a linha aproximada
       setTimeout(() => {
         const editor = document.querySelector('.ProseMirror')
         if (!editor) return
@@ -138,21 +109,23 @@ export function GlobalSearch({ dirPath, onOpen, onClose }: GlobalSearchProps): R
   }, [onOpen])
 
   const noDir = !dirPath
+  const resultCount = result?.total ?? 0
+  const fileCount   = result?.results.length ?? 0
+  const resultLabel = resultCount === 1 ? t('gs.result', locale)  : t('gs.resultPlural', locale)
+  const fileLabel   = fileCount   === 1 ? t('gs.file', locale)    : t('gs.filePlural', locale)
 
   return (
     <div className="gs-panel" onKeyDown={handleKeyDown}>
-      {/* Header */}
       <div className="gs-header">
-        <span className="gs-title">BUSCA</span>
-        <button className="gs-close" onClick={onClose} title="Fechar (Esc)">✕</button>
+        <span className="gs-title">{t('gs.title', locale)}</span>
+        <button className="gs-close" onClick={onClose} title={t('gs.close', locale)}>✕</button>
       </div>
 
-      {/* Input */}
       <div className="gs-input-wrap">
         <input
           ref={inputRef}
           className="gs-input"
-          placeholder={noDir ? 'Abra uma pasta primeiro...' : 'Buscar em arquivos...'}
+          placeholder={noDir ? t('gs.placeholderNoDir', locale) : t('gs.placeholder', locale)}
           value={query}
           onChange={e => setQuery(e.target.value)}
           disabled={noDir}
@@ -161,30 +134,23 @@ export function GlobalSearch({ dirPath, onOpen, onClose }: GlobalSearchProps): R
         <button
           className={`gs-case-btn${caseSensitive ? ' gs-case-btn--active' : ''}`}
           onClick={() => setCaseSensitive(v => !v)}
-          title="Case sensitive"
+          title={t('gs.caseSensitive', locale)}
         >
           Aa
         </button>
       </div>
 
-      {/* Resultados */}
       <div className="gs-results">
-        {noDir && (
-          <div className="gs-empty">Abra uma pasta na sidebar para buscar.</div>
-        )}
-        {!noDir && !query.trim() && (
-          <div className="gs-empty">Digite para buscar em todos os arquivos.</div>
-        )}
-        {!noDir && query.trim() && searching && (
-          <div className="gs-empty">Buscando...</div>
-        )}
+        {noDir && <div className="gs-empty">{t('gs.emptyNoDir', locale)}</div>}
+        {!noDir && !query.trim() && <div className="gs-empty">{t('gs.emptyHint', locale)}</div>}
+        {!noDir && query.trim() && searching && <div className="gs-empty">{t('gs.searching', locale)}</div>}
         {!noDir && result && !searching && result.results.length === 0 && (
-          <div className="gs-empty">Nenhum resultado para <strong>"{query}"</strong></div>
+          <div className="gs-empty">{t('gs.noResults', locale)} <strong>"{query}"</strong></div>
         )}
         {!noDir && result && !searching && result.results.length > 0 && (
           <>
             <div className="gs-summary">
-              {result.total} resultado{result.total !== 1 ? 's' : ''} em {result.results.length} arquivo{result.results.length !== 1 ? 's' : ''}
+              {resultCount} {resultLabel} {t('gs.in', locale)} {fileCount} {fileLabel}
             </div>
             {result.results.map((fr) => (
               <FileResultGroup

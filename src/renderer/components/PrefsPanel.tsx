@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import type { UserPreferences } from '@shared/types'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 interface PrefsPanelProps {
   prefs:    UserPreferences
   onChange: (prefs: UserPreferences) => void
   onClose:  () => void
+  locale:   Locale
 }
 
 const FONT_FAMILIES = [
@@ -19,9 +22,9 @@ const FONT_FAMILIES = [
 const FONT_SIZES   = [12, 13, 14, 15, 16, 17, 18, 20, 22, 24]
 const LINE_HEIGHTS = [1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0]
 
-type Section = 'appearance' | 'editor' | 'markdown' | 'images'
+type Section = 'appearance' | 'editor' | 'markdown' | 'images' | 'language'
 
-export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React.JSX.Element {
+export function PrefsPanel({ prefs, onChange, onClose, locale }: PrefsPanelProps): React.JSX.Element {
   const [local, setLocal]     = useState<UserPreferences>(prefs)
   const [section, setSection] = useState<Section>('appearance')
 
@@ -41,20 +44,21 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
 
   return (
     <div className="prefs-overlay" onClick={handleBackdrop} onKeyDown={handleKeyDown}>
-      <div className="prefs-modal" role="dialog" aria-label="Preferências">
+      <div className="prefs-modal" role="dialog" aria-label={t('prefs.title', locale)}>
 
         <div className="prefs-header">
-          <span className="prefs-title">Preferências</span>
-          <button className="prefs-close" onClick={onClose} title="Fechar (Esc)">✕</button>
+          <span className="prefs-title">{t('prefs.title', locale)}</span>
+          <button className="prefs-close" onClick={onClose} title={t('prefs.close', locale)}>✕</button>
         </div>
 
         <div className="prefs-body">
           <nav className="prefs-nav">
             {([
-              ['appearance', '🎨', 'Aparência'],
-              ['editor',     '⚙️', 'Editor'],
-              ['images',     '🖼️', 'Imagens'],
-              ['markdown',   '✳️', 'Markdown'],
+              ['appearance', '🎨', t('prefs.section.appearance', locale)],
+              ['editor',     '⚙️', t('prefs.section.editor',     locale)],
+              ['images',     '🖼️', t('prefs.section.images',     locale)],
+              ['markdown',   '✳️', t('prefs.section.markdown',   locale)],
+              ['language',   '🌐', t('prefs.section.language',   locale)],
             ] as [Section, string, string][]).map(([id, icon, label]) => (
               <button
                 key={id}
@@ -72,12 +76,16 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
             {/* ── Aparência ── */}
             {section === 'appearance' && (
               <div className="prefs-section">
-                <h3 className="prefs-section-title">Aparência</h3>
+                <h3 className="prefs-section-title">{t('prefs.section.appearance', locale)}</h3>
 
                 <div className="prefs-field">
-                  <label className="prefs-label">Tema</label>
+                  <label className="prefs-label">{t('prefs.theme', locale)}</label>
                   <div className="prefs-radio-group">
-                    {([['system','Sistema'],['light','Claro'],['dark','Escuro']] as const).map(([v, l]) => (
+                    {([
+                      ['system', t('prefs.themeSystem', locale)],
+                      ['light',  t('prefs.themeLight',  locale)],
+                      ['dark',   t('prefs.themeDark',   locale)],
+                    ] as const).map(([v, l]) => (
                       <label key={v} className="prefs-radio">
                         <input type="radio" name="theme" value={v} checked={local.theme === v} onChange={() => set('theme', v)} />
                         {l}
@@ -87,14 +95,14 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                 </div>
 
                 <div className="prefs-field">
-                  <label className="prefs-label">Fonte do editor</label>
+                  <label className="prefs-label">{t('prefs.fontFamily', locale)}</label>
                   <select className="prefs-select" value={local.fontFamily} onChange={e => set('fontFamily', e.target.value)}>
                     {FONT_FAMILIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
                 </div>
 
                 <div className="prefs-field">
-                  <label className="prefs-label">Tamanho da fonte</label>
+                  <label className="prefs-label">{t('prefs.fontSize', locale)}</label>
                   <div className="prefs-row">
                     <input type="range" min={12} max={24} step={1} value={local.fontSize}
                       onChange={e => set('fontSize', Number(e.target.value))} className="prefs-range" />
@@ -109,7 +117,7 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                 </div>
 
                 <div className="prefs-field">
-                  <label className="prefs-label">Altura da linha</label>
+                  <label className="prefs-label">{t('prefs.lineHeight', locale)}</label>
                   <div className="prefs-row">
                     <input type="range" min={1.3} max={2.0} step={0.1} value={local.lineHeight}
                       onChange={e => set('lineHeight', Number(e.target.value))} className="prefs-range" />
@@ -135,19 +143,19 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
             {/* ── Editor ── */}
             {section === 'editor' && (
               <div className="prefs-section">
-                <h3 className="prefs-section-title">Editor</h3>
+                <h3 className="prefs-section-title">{t('prefs.section.editor', locale)}</h3>
 
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.autoSave} onChange={e => set('autoSave', e.target.checked)} />
-                    <span className="prefs-toggle-label">Auto-save</span>
-                    <span className="prefs-toggle-desc">Salva automaticamente enquanto você digita</span>
+                    <span className="prefs-toggle-label">{t('prefs.autoSave', locale)}</span>
+                    <span className="prefs-toggle-desc">{t('prefs.autoSaveDesc', locale)}</span>
                   </label>
                 </div>
 
                 {local.autoSave && (
                   <div className="prefs-field prefs-field--indented">
-                    <label className="prefs-label">Intervalo do auto-save</label>
+                    <label className="prefs-label">{t('prefs.autoSaveInterval', locale)}</label>
                     <div className="prefs-row">
                       <input type="range" min={10} max={120} step={10} value={local.autoSaveInterval}
                         onChange={e => set('autoSaveInterval', Number(e.target.value))} className="prefs-range" />
@@ -159,41 +167,60 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.autoPairDelimiters} onChange={e => set('autoPairDelimiters', e.target.checked)} />
-                    <span className="prefs-toggle-label">Auto-pair de delimitadores</span>
-                    <span className="prefs-toggle-desc">Fecha automaticamente ( ) [ ] {"{ }"} " " ` ` * *</span>
+                    <span className="prefs-toggle-label">{t('prefs.autoPair', locale)}</span>
+                    <span className="prefs-toggle-desc">{t('prefs.autoPairDesc', locale)}</span>
                   </label>
                 </div>
 
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.spellCheck} onChange={e => set('spellCheck', e.target.checked)} />
-                    <span className="prefs-toggle-label">Verificação ortográfica</span>
-                    <span className="prefs-toggle-desc">Sublinha palavras desconhecidas (requere reinício)</span>
+                    <span className="prefs-toggle-label">{t('prefs.spellCheck', locale)}</span>
+                    <span className="prefs-toggle-desc">{t('prefs.spellCheckDesc', locale)}</span>
                   </label>
                 </div>
+
+                <div className="prefs-field">
+                  <label className="prefs-label">{t('prefs.calloutStyle', locale)}</label>
+                  <div className="prefs-radio-group">
+                    <label className="prefs-radio">
+                      <input type="radio" name="calloutStyle" value="colorful"
+                        checked={local.calloutStyle === 'colorful'}
+                        onChange={() => set('calloutStyle', 'colorful')} />
+                      {t('prefs.calloutColorful', locale)}
+                    </label>
+                    <label className="prefs-radio">
+                      <input type="radio" name="calloutStyle" value="minimal"
+                        checked={local.calloutStyle === 'minimal'}
+                        onChange={() => set('calloutStyle', 'minimal')} />
+                      {t('prefs.calloutMinimal', locale)}
+                    </label>
+                  </div>
+                  <span className="prefs-toggle-desc" style={{ marginTop: 4, display: 'block' }}>
+                    {t('prefs.calloutStyleDesc', locale)}
+                  </span>
+                </div>
+
               </div>
             )}
 
             {/* ── Imagens ── */}
             {section === 'images' && (
               <div className="prefs-section">
-                <h3 className="prefs-section-title">Imagens</h3>
+                <h3 className="prefs-section-title">{t('prefs.section.images', locale)}</h3>
 
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.imageCopyToAssets}
                       onChange={e => set('imageCopyToAssets', e.target.checked)} />
-                    <span className="prefs-toggle-label">Copiar imagem para pasta de assets</span>
-                    <span className="prefs-toggle-desc">
-                      Ao inserir imagem por drag & drop ou colar, copia o arquivo para uma subpasta ao lado do .md.
-                      Se desligado, usa o caminho absoluto original.
-                    </span>
+                    <span className="prefs-toggle-label">{t('prefs.imageCopy', locale)}</span>
+                    <span className="prefs-toggle-desc">{t('prefs.imageCopyDesc', locale)}</span>
                   </label>
                 </div>
 
                 {local.imageCopyToAssets && (
                   <div className="prefs-field prefs-field--indented">
-                    <label className="prefs-label">Nome da pasta de assets</label>
+                    <label className="prefs-label">{t('prefs.imageFolder', locale)}</label>
                     <input
                       type="text"
                       className="link-dialog-input"
@@ -207,13 +234,13 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
                       style={{ width: '100%', marginTop: 4 }}
                     />
                     <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                      A pasta será criada automaticamente ao lado do arquivo .md aberto.
+                      {t('prefs.imageFolderDesc', locale)}
                     </span>
                   </div>
                 )}
 
                 <div className="prefs-md-note">
-                  💡 Sem um arquivo .md salvo, imagens não podem ser inseridas — o app pedirá para salvar primeiro.
+                  {t('prefs.imageNote', locale)}
                 </div>
               </div>
             )}
@@ -221,35 +248,63 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
             {/* ── Markdown ── */}
             {section === 'markdown' && (
               <div className="prefs-section">
-                <h3 className="prefs-section-title">Extensões Markdown</h3>
-                <p className="prefs-section-desc">Funcionalidades extras além do CommonMark padrão. Alterações aplicam ao reabrir o arquivo.</p>
+                <h3 className="prefs-section-title">{t('prefs.section.markdownExt', locale)}</h3>
+                <p className="prefs-section-desc">{t('prefs.mdDesc', locale)}</p>
 
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.mdSubscript} onChange={e => set('mdSubscript', e.target.checked)} />
-                    <span className="prefs-toggle-label">Subscrito <code>H~2~O</code></span>
-                    <span className="prefs-toggle-desc">Texto abaixo da linha com ~ ~ (H₂O, CO₂)</span>
+                    <span className="prefs-toggle-label">{t('prefs.mdSubscript', locale)} <code>H~2~O</code></span>
+                    <span className="prefs-toggle-desc">{t('prefs.mdSubscriptDesc', locale)}</span>
                   </label>
                 </div>
 
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.mdSuperscript} onChange={e => set('mdSuperscript', e.target.checked)} />
-                    <span className="prefs-toggle-label">Sobrescrito <code>E=mc^2^</code></span>
-                    <span className="prefs-toggle-desc">Texto acima da linha com ^ ^ (E=mc², X²)</span>
+                    <span className="prefs-toggle-label">{t('prefs.mdSuperscript', locale)} <code>E=mc^2^</code></span>
+                    <span className="prefs-toggle-desc">{t('prefs.mdSuperscriptDesc', locale)}</span>
                   </label>
                 </div>
 
                 <div className="prefs-field">
                   <label className="prefs-toggle">
                     <input type="checkbox" checked={local.mdHighlight} onChange={e => set('mdHighlight', e.target.checked)} />
-                    <span className="prefs-toggle-label">Destaque <code>==texto==</code></span>
-                    <span className="prefs-toggle-desc">Texto destacado com == == (como marca-texto amarelo)</span>
+                    <span className="prefs-toggle-label">{t('prefs.mdHighlight', locale)} <code>==texto==</code></span>
+                    <span className="prefs-toggle-desc">{t('prefs.mdHighlightDesc', locale)}</span>
                   </label>
                 </div>
 
                 <div className="prefs-md-note">
-                  💡 Essas extensões são processadas no modo source (Ctrl+/) e exportadas corretamente para HTML.
+                  {t('prefs.mdNote', locale)}
+                </div>
+              </div>
+            )}
+
+            {/* ── Idioma ── */}
+            {section === 'language' && (
+              <div className="prefs-section">
+                <h3 className="prefs-section-title">{t('prefs.section.language', locale)}</h3>
+
+                <div className="prefs-field">
+                  <label className="prefs-label">{t('prefs.langLabel', locale)}</label>
+                  <div className="prefs-radio-group">
+                    <label className="prefs-radio">
+                      <input type="radio" name="locale" value="pt-BR"
+                        checked={local.locale === 'pt-BR'}
+                        onChange={() => set('locale', 'pt-BR')} />
+                      {t('prefs.langPtBR', locale)}
+                    </label>
+                    <label className="prefs-radio">
+                      <input type="radio" name="locale" value="en"
+                        checked={local.locale === 'en'}
+                        onChange={() => set('locale', 'en')} />
+                      {t('prefs.langEn', locale)}
+                    </label>
+                  </div>
+                  <span className="prefs-toggle-desc" style={{ marginTop: 4, display: 'block' }}>
+                    {t('prefs.langDesc', locale)}
+                  </span>
                 </div>
               </div>
             )}
@@ -258,8 +313,8 @@ export function PrefsPanel({ prefs, onChange, onClose }: PrefsPanelProps): React
         </div>
 
         <div className="prefs-footer">
-          <span className="prefs-footer-hint">Alterações aplicam em tempo real</span>
-          <button className="prefs-btn prefs-btn--primary" onClick={onClose}>Fechar</button>
+          <span className="prefs-footer-hint">{t('prefs.footerHint', locale)}</span>
+          <button className="prefs-btn prefs-btn--primary" onClick={onClose}>{t('prefs.close', locale)}</button>
         </div>
 
       </div>

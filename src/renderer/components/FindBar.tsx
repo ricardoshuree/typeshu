@@ -16,6 +16,8 @@
  *   (no campo replace) Enter → substituir atual
  */
 import React, { useRef, useEffect, useState } from 'react'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 interface FindBarProps {
   showReplace:    boolean
@@ -27,12 +29,13 @@ interface FindBarProps {
   onClose:        () => void
   matchCount:     number
   currentMatch:   number
+  locale:         Locale
 }
 
 export function FindBar({
   showReplace, onFind, onNext, onPrev,
   onReplaceOne, onReplaceAll, onClose,
-  matchCount, currentMatch,
+  matchCount, currentMatch, locale,
 }: FindBarProps): React.JSX.Element {
   const [query,         setQuery]         = useState('')
   const [replacement,   setReplacement]   = useState('')
@@ -76,8 +79,8 @@ export function FindBar({
 
   const hasResults = matchCount > 0
   const label      = !query      ? ''
-                   : !hasResults ? 'Sem resultados'
-                   : `${currentMatch + 1} de ${matchCount}`
+                   : !hasResults ? t('find.noResults', locale)
+                   : `${currentMatch + 1} ${t('find.ofCount', locale)} ${matchCount}`
   const noMatch    = !!query && !hasResults
 
   return (
@@ -88,7 +91,7 @@ export function FindBar({
         {/* Toggle expand/collapse replace */}
         <button
           className="find-bar-toggle"
-          title={replaceMode ? 'Ocultar substituição' : 'Mostrar substituição'}
+          title={replaceMode ? t('find.hideReplace', locale) : t('find.showReplace', locale)}
           onClick={() => setReplaceMode(v => !v)}
         >{replaceMode ? '▾' : '▸'}</button>
 
@@ -98,7 +101,7 @@ export function FindBar({
             ref={findRef}
             className="find-bar-input"
             type="text"
-            placeholder="Buscar…"
+            placeholder={t('find.placeholder', locale)}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleFindKeyDown}
@@ -113,13 +116,13 @@ export function FindBar({
 
         <button
           className={`find-bar-btn find-bar-btn--case ${caseSensitive ? 'find-bar-btn--active' : ''}`}
-          title="Diferenciar maiúsculas"
+          title={t('find.caseSensitive', locale)}
           onClick={() => setCaseSensitive(v => !v)}
         >Aa</button>
 
-        <button className="find-bar-btn" title="Anterior (Shift+Enter)" onClick={onPrev} disabled={!hasResults}>▲</button>
-        <button className="find-bar-btn" title="Próximo (Enter)"        onClick={onNext} disabled={!hasResults}>▼</button>
-        <button className="find-bar-btn find-bar-btn--close" title="Fechar (Esc)" onClick={onClose}>✕</button>
+        <button className="find-bar-btn" title={t('find.prev', locale)} onClick={onPrev} disabled={!hasResults}>▲</button>
+        <button className="find-bar-btn" title={t('find.next', locale)} onClick={onNext} disabled={!hasResults}>▼</button>
+        <button className="find-bar-btn find-bar-btn--close" title={t('find.close', locale)} onClick={onClose}>✕</button>
       </div>
 
       {/* Linha de substituição — só aparece no modo replace */}
@@ -134,7 +137,7 @@ export function FindBar({
               ref={replaceRef}
               className="find-bar-input"
               type="text"
-              placeholder="Substituir por…"
+              placeholder={t('find.replacePlaceholder', locale)}
               value={replacement}
               onChange={e => setReplacement(e.target.value)}
               onKeyDown={handleReplaceKeyDown}
@@ -144,17 +147,17 @@ export function FindBar({
 
           <button
             className="find-bar-btn find-bar-btn--replace"
-            title="Substituir atual (Enter)"
+            title={t('find.replaceOne', locale)}
             onClick={() => onReplaceOne(replacement)}
             disabled={!hasResults}
-          >Substituir</button>
+          >{t('find.replaceBtn', locale)}</button>
 
           <button
             className="find-bar-btn find-bar-btn--replace"
-            title="Substituir todos (Shift+Enter)"
+            title={t('find.replaceAll', locale)}
             onClick={() => onReplaceAll(replacement)}
             disabled={!hasResults}
-          >Todos</button>
+          >{t('find.replaceAllBtn', locale)}</button>
         </div>
       )}
     </div>

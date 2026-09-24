@@ -1,6 +1,8 @@
 // [mcp-local harness] feature: toolbars-v2-fix3 | plano: 7e079ba3 | 2026-09-18
 // Fix definitivo: salva from/to ProseMirror no mousedown e restaura via executeWithSelection
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 export interface FloatingToolbarProps {
   editorContainerRef:   React.RefObject<HTMLElement>
@@ -13,17 +15,20 @@ export interface FloatingToolbarProps {
   onLink:               () => void
   onBlockquote:         () => void
   onHeading:            (level: 0|1|2|3|4|5|6) => void
+  locale:               Locale
 }
 
-const HEADING_ITEMS: { level: 0|1|2|3|4|5|6; label: string }[] = [
-  { level: 0, label: 'Parágrafo' },
-  { level: 1, label: 'Título 1' },
-  { level: 2, label: 'Título 2' },
-  { level: 3, label: 'Título 3' },
-  { level: 4, label: 'Título 4' },
-  { level: 5, label: 'Título 5' },
-  { level: 6, label: 'Título 6' },
-]
+function buildHeadingItems(locale: Locale): { level: 0|1|2|3|4|5|6; label: string }[] {
+  return [
+    { level: 0, label: t('ftb.paragraph', locale) },
+    { level: 1, label: t('ftb.h1', locale) },
+    { level: 2, label: t('ftb.h2', locale) },
+    { level: 3, label: t('ftb.h3', locale) },
+    { level: 4, label: t('ftb.h4', locale) },
+    { level: 5, label: t('ftb.h5', locale) },
+    { level: 6, label: t('ftb.h6', locale) },
+  ]
+}
 
 interface Pos { top: number; left: number }
 
@@ -50,6 +55,7 @@ function getProseMirrorSelection(container: HTMLElement | null): { from: number;
 export function FloatingToolbar({
   editorContainerRef,
   onExecute, onBold, onItalic, onStrike, onInlineCode, onLink, onBlockquote, onHeading,
+  locale,
 }: FloatingToolbarProps): React.JSX.Element | null {
   const [visible, setVisible]         = useState(false)
   const [pos, setPos]                 = useState<Pos>({ top: 0, left: 0 })
@@ -150,6 +156,8 @@ export function FloatingToolbar({
 
   if (!visible) return null
 
+  const headingItems = buildHeadingItems(locale)
+
   return (
     <div
       ref={tbRef}
@@ -165,7 +173,7 @@ export function FloatingToolbar({
         <button
           className={`ftb-btn ftb-btn--heading ${headingOpen ? 'ftb-btn--active' : ''}`}
           onMouseDown={e => { e.preventDefault(); saveSelection(); setHeadingOpen(v => !v) }}
-          title="Heading"
+          title={t('ftb.heading', locale)}
           aria-haspopup="listbox"
           aria-expanded={headingOpen}
         >
@@ -173,7 +181,7 @@ export function FloatingToolbar({
         </button>
         {headingOpen && (
           <div className="ftb-heading-menu" role="listbox">
-            {HEADING_ITEMS.map(({ level, label }) => (
+            {headingItems.map(({ level, label }) => (
               <button
                 key={level}
                 className={`ftb-heading-item ftb-heading-item--${level === 0 ? 'p' : `h${level}`}`}
@@ -190,15 +198,15 @@ export function FloatingToolbar({
 
       <span className="ftb-sep" />
 
-      <button className="ftb-btn ftb-btn--bold"  onMouseDown={btn(onBold)}       title="Negrito (Ctrl+B)">B</button>
-      <button className="ftb-btn ftb-btn--italic" onMouseDown={btn(onItalic)}     title="Itálico (Ctrl+I)">I</button>
-      <button className="ftb-btn ftb-btn--strike" onMouseDown={btn(onStrike)}     title="Riscado (Alt+Shift+5)">S</button>
+      <button className="ftb-btn ftb-btn--bold"  onMouseDown={btn(onBold)}       title={t('ftb.bold', locale)}>B</button>
+      <button className="ftb-btn ftb-btn--italic" onMouseDown={btn(onItalic)}     title={t('ftb.italic', locale)}>I</button>
+      <button className="ftb-btn ftb-btn--strike" onMouseDown={btn(onStrike)}     title={t('ftb.strike', locale)}>S</button>
 
       <span className="ftb-sep" />
 
-      <button className="ftb-btn" onMouseDown={btn(onInlineCode)} title="Código inline"><FtbIconCode /></button>
-      <button className="ftb-btn" onMouseDown={btn(onLink)}       title="Link (Ctrl+K)"><FtbIconLink /></button>
-      <button className="ftb-btn" onMouseDown={btn(onBlockquote)} title="Blockquote (Ctrl+Shift+Q)"><FtbIconQuote /></button>
+      <button className="ftb-btn" onMouseDown={btn(onInlineCode)} title={t('ftb.code', locale)}><FtbIconCode /></button>
+      <button className="ftb-btn" onMouseDown={btn(onLink)}       title={t('ftb.link', locale)}><FtbIconLink /></button>
+      <button className="ftb-btn" onMouseDown={btn(onBlockquote)} title={t('ftb.blockquote', locale)}><FtbIconQuote /></button>
     </div>
   )
 }

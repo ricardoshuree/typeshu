@@ -1,23 +1,26 @@
 // [mcp-local harness] feature: polish-ui | plano: 5583e164 | 2026-09-18
 // Gear SVG redesenhado estilo VS Code (dentes arredondados, proporções corretas)
 import React from 'react'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 export interface ActivityBarProps {
   sidebarOpen:     boolean
   onToggleSidebar: () => void
   onQuickOpen:     () => void
   onPrefs:         () => void
+  locale:          Locale
 }
 
-export function ActivityBar({ sidebarOpen, onToggleSidebar, onQuickOpen, onPrefs }: ActivityBarProps): React.JSX.Element {
+export function ActivityBar({ sidebarOpen, onToggleSidebar, onQuickOpen, onPrefs, locale }: ActivityBarProps): React.JSX.Element {
   return (
     <div className="activity-bar">
       <div className="activity-bar-top">
         <button
           className={`activity-btn${sidebarOpen ? ' activity-btn--active' : ''}`}
           onClick={onToggleSidebar}
-          title="Explorer (Ctrl+Shift+L)"
-          aria-label="Toggle Explorer"
+          title={t('ab.explorer', locale)}
+          aria-label={t('ab.explorerLabel', locale)}
         >
           <IconExplorer />
           {sidebarOpen && <span className="activity-btn-indicator" />}
@@ -26,8 +29,8 @@ export function ActivityBar({ sidebarOpen, onToggleSidebar, onQuickOpen, onPrefs
         <button
           className="activity-btn"
           onClick={onQuickOpen}
-          title="Busca rápida (Ctrl+P)"
-          aria-label="Busca rápida"
+          title={t('ab.search', locale)}
+          aria-label={t('ab.searchLabel', locale)}
         >
           <IconSearch />
         </button>
@@ -37,8 +40,8 @@ export function ActivityBar({ sidebarOpen, onToggleSidebar, onQuickOpen, onPrefs
         <button
           className="activity-btn"
           onClick={onPrefs}
-          title="Preferências (Ctrl+,)"
-          aria-label="Preferências"
+          title={t('ab.prefs', locale)}
+          aria-label={t('ab.prefsLabel', locale)}
         >
           <IconGear />
         </button>

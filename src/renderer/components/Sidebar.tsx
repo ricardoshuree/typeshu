@@ -2,6 +2,8 @@
 // +viewMode: 'tree' | 'flat' — botões toggle no header, FlatPanel lista .md recursivamente
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { FileEntry, DirListResult, RecentFile } from '@shared/types'
+import { t } from '@shared/i18n'
+import type { Locale } from '@shared/i18n'
 
 export const SIDEBAR_DRAG_KEY = 'typeshu/filepath'
 
@@ -31,6 +33,7 @@ interface SidebarProps {
   onDirChange:  (dirPath: string) => void
   onFileDelete?: (path: string) => void
   onFileRename?: (oldPath: string, newPath: string) => void
+  locale: Locale
 }
 
 interface DragState {
@@ -41,14 +44,13 @@ interface DragState {
 interface FlatFile {
   path:     string
   name:     string
-  relDir:   string   // caminho relativo da pasta ('' = raiz)
+  relDir:   string
 }
 
 const HOVER_EXPAND_DELAY = 600
 const MD_EXTS = new Set(['.md', '.markdown', '.txt'])
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '.cache'])
 
-// ── Coleta recursiva de arquivos para o flat mode ─────────────────────────
 async function collectFiles(dirPath: string, rootPath: string, depth = 0): Promise<FlatFile[]> {
   if (depth > 6) return []
   try {
@@ -73,7 +75,6 @@ async function collectFiles(dirPath: string, rootPath: string, depth = 0): Promi
   } catch { return [] }
 }
 
-// ── SVG Icons ─────────────────────────────────────────────────────────────
 function IconFolder({ open }: { open: boolean }) {
   return open ? (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -98,7 +99,6 @@ function IconFile({ name }: { name: string }) {
   )
 }
 
-// ── Ícones do toggle de view mode ─────────────────────────────────────────
 function IconTreeView() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -125,8 +125,9 @@ function IconFlatList() {
 
 interface ContextMenuState { x: number; y: number; entry: FileEntry }
 
-function ContextMenu({ menu, onRename, onDelete, onReveal, onCopyPath, onClose }: {
+function ContextMenu({ menu, locale, onRename, onDelete, onReveal, onCopyPath, onClose }: {
   menu: ContextMenuState
+  locale: Locale
   onRename:   (entry: FileEntry) => void
   onDelete:   (entry: FileEntry) => void
   onReveal:   (entry: FileEntry) => void
@@ -142,17 +143,17 @@ function ContextMenu({ menu, onRename, onDelete, onReveal, onCopyPath, onClose }
   return (
     <div ref={ref} className="ctx-menu" style={{ top: menu.y, left: menu.x }}>
       <button className="ctx-menu-item" onClick={() => { onRename(menu.entry); onClose() }}>
-        <span style={{ fontSize: 13, marginRight: 6 }}>✏️</span>Renomear
+        <span style={{ fontSize: 13, marginRight: 6 }}>✏️</span>{t('ctx.rename', locale)}
       </button>
       <button className="ctx-menu-item" onClick={() => { onCopyPath(menu.entry); onClose() }}>
-        <span style={{ fontSize: 13, marginRight: 6 }}>📋</span>Copiar caminho
+        <span style={{ fontSize: 13, marginRight: 6 }}>📋</span>{t('ctx.copyPath', locale)}
       </button>
       <button className="ctx-menu-item" onClick={() => { onReveal(menu.entry); onClose() }}>
-        <span style={{ fontSize: 13, marginRight: 6 }}>📂</span>Revelar no Explorer
+        <span style={{ fontSize: 13, marginRight: 6 }}>📂</span>{t('ctx.reveal', locale)}
       </button>
       <div className="ctx-menu-separator" />
       <button className="ctx-menu-item ctx-menu-item--danger" onClick={() => { onDelete(menu.entry); onClose() }}>
-        <span style={{ fontSize: 13, marginRight: 6 }}>🗑️</span>Mover para lixeira
+        <span style={{ fontSize: 13, marginRight: 6 }}>🗑️</span>{t('ctx.trash', locale)}
       </button>
     </div>
   )
@@ -185,12 +186,12 @@ function InlineInput({ initialValue, placeholder, selectUpToLastDot, paddingLeft
   )
 }
 
-// ── Flat Panel ────────────────────────────────────────────────────────────
-function FlatPanel({ rootPath, currentFilePath, sortMode, refreshKey, onFileOpen }: {
+function FlatPanel({ rootPath, currentFilePath, sortMode, refreshKey, locale, onFileOpen }: {
   rootPath:        string
   currentFilePath: string | null
   sortMode:        SortMode
   refreshKey:      number
+  locale:          Locale
   onFileOpen:      (path: string, content: string) => void
 }): React.JSX.Element {
   const [files, setFiles] = useState<FlatFile[]>([])
@@ -215,8 +216,8 @@ function FlatPanel({ rootPath, currentFilePath, sortMode, refreshKey, onFileOpen
     if (result.success && result.content !== undefined && result.path) onFileOpen(result.path, result.content)
   }, [onFileOpen])
 
-  if (loading) return <div className="sidebar-empty" style={{ fontSize: 12 }}>Carregando…</div>
-  if (files.length === 0) return <div className="sidebar-empty"><p>Nenhum arquivo encontrado.</p></div>
+  if (loading) return <div className="sidebar-empty" style={{ fontSize: 12 }}>{t('sidebar.loading', locale)}</div>
+  if (files.length === 0) return <div className="sidebar-empty"><p>{t('sidebar.noFiles', locale)}</p></div>
 
   return (
     <div className="sidebar-tree">
@@ -243,10 +244,9 @@ function FlatPanel({ rootPath, currentFilePath, sortMode, refreshKey, onFileOpen
   )
 }
 
-// ── TreeNode ──────────────────────────────────────────────────────────────
 type CreatingInDir = { parentPath: string; type: 'file' | 'dir' }
 
-function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renamingPath, onRenameConfirm, onRenameCancel, depth, sortMode, creatingInDir, onNewFileConfirm, onNewDirConfirm, onNewCancel, dragState, onDragStart, onDrop, onDragEnd, refreshKey }: {
+function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renamingPath, onRenameConfirm, onRenameCancel, depth, sortMode, creatingInDir, onNewFileConfirm, onNewDirConfirm, onNewCancel, dragState, onDragStart, onDrop, onDragEnd, refreshKey, locale }: {
   entry: FileEntry; currentFilePath: string | null
   onFileClick: (e: FileEntry) => void; onContextMenu: (ev: React.MouseEvent, e: FileEntry) => void
   renamingPath: string | null; onRenameConfirm: (e: FileEntry, n: string) => void; onRenameCancel: () => void
@@ -260,6 +260,7 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
   onDrop:      (targetEntry: FileEntry) => void
   onDragEnd:   () => void
   refreshKey:  number
+  locale: Locale
 }): React.JSX.Element {
   const [expanded, setExpanded]         = useState(false)
   const [children, setChildren]         = useState<FileEntry[]>([])
@@ -303,7 +304,7 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
   }
 
   const getDropDir = (): string =>
-    entry.isDirectory ? entry.path : entry.path.replace(/[\\/][^\\/]+$/, '')
+    entry.isDirectory ? entry.path : entry.path.replace(/[\\\/][^\\\/]+$/, '')
 
   const isValidDropTarget = (): boolean => {
     const src = dragState.current.entry
@@ -311,7 +312,7 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
     if (src.path === entry.path) return false
     const dropDir = getDropDir()
     if (dropDir === src.path || dropDir.startsWith(src.path + '\\') || dropDir.startsWith(src.path + '/')) return false
-    const srcDir = src.path.replace(/[\\/][^\\/]+$/, '')
+    const srcDir = src.path.replace(/[\\\/][^\\\/]+$/, '')
     if (dropDir === srcDir) return false
     return true
   }
@@ -381,11 +382,11 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
       {entry.isDirectory && expanded && (
         <div className="tree-children">
           {showCreatingInside && creatingInDir?.type === 'file' && (
-            <InlineInput initialValue="sem-título.md" selectUpToLastDot paddingLeft={12 + (depth + 1) * 14}
+            <InlineInput initialValue={t('sidebar.newFileDefault', locale)} selectUpToLastDot paddingLeft={12 + (depth + 1) * 14}
               onConfirm={n => onNewFileConfirm(entry.path, n)} onCancel={onNewCancel} />
           )}
           {showCreatingInside && creatingInDir?.type === 'dir' && (
-            <InlineInput initialValue="nova-pasta" paddingLeft={12 + (depth + 1) * 14}
+            <InlineInput initialValue={t('sidebar.newDirDefault', locale)} paddingLeft={12 + (depth + 1) * 14}
               onConfirm={n => onNewDirConfirm(entry.path, n)} onCancel={onNewCancel} />
           )}
           {sortList(children).map(child => (
@@ -396,10 +397,11 @@ function TreeNode({ entry, currentFilePath, onFileClick, onContextMenu, renaming
               creatingInDir={creatingInDir} onNewFileConfirm={onNewFileConfirm} onNewDirConfirm={onNewDirConfirm} onNewCancel={onNewCancel}
               dragState={dragState} onDragStart={onDragStart} onDrop={onDrop} onDragEnd={onDragEnd}
               refreshKey={refreshKey}
+              locale={locale}
             />
           ))}
           {children.length === 0 && !showCreatingInside && (
-            <div className="tree-empty" style={{ paddingLeft: `${12 + (depth + 1) * 14}px` }}>vazio</div>
+            <div className="tree-empty" style={{ paddingLeft: `${12 + (depth + 1) * 14}px` }}>{t('sidebar.empty', locale)}</div>
           )}
         </div>
       )}
@@ -426,10 +428,13 @@ function scrollToHeading(text: string): void {
   for (const h of headings) { if (h.textContent?.trim() === text) { h.scrollIntoView({ behavior: 'smooth', block: 'start' }); return } }
 }
 
-function OutlinePanel({ markdown }: { markdown: string }): React.JSX.Element {
+function OutlinePanel({ markdown, locale }: { markdown: string; locale: Locale }): React.JSX.Element {
   const headings = extractHeadings(markdown)
   if (headings.length === 0) return (
-    <div className="sidebar-empty"><p>Nenhum heading encontrado.</p><p style={{ fontSize: 12, marginTop: 8 }}>Use # H1, ## H2, etc.</p></div>
+    <div className="sidebar-empty">
+      <p>{t('sidebar.outlineEmpty', locale)}</p>
+      <p style={{ fontSize: 12, marginTop: 8 }}>{t('sidebar.outlineHint', locale)}</p>
+    </div>
   )
   const minLevel = Math.min(...headings.map(h => h.level))
   return (
@@ -446,8 +451,9 @@ function OutlinePanel({ markdown }: { markdown: string }): React.JSX.Element {
   )
 }
 
-function RecentPanel({ files, currentFilePath, onFileOpen }: {
+function RecentPanel({ files, currentFilePath, locale, onFileOpen }: {
   files: RecentFile[]; currentFilePath: string | null
+  locale: Locale
   onFileOpen: (path: string, content: string) => void
 }): React.JSX.Element {
   const handleClick = useCallback(async (r: RecentFile) => {
@@ -455,7 +461,10 @@ function RecentPanel({ files, currentFilePath, onFileOpen }: {
     if (result.success && result.content !== undefined && result.path) onFileOpen(result.path, result.content)
   }, [onFileOpen])
   if (files.length === 0) return (
-    <div className="sidebar-empty"><p>Nenhum arquivo recente.</p><p style={{ fontSize: 12, marginTop: 8 }}>Abra um arquivo para vê-lo aqui.</p></div>
+    <div className="sidebar-empty">
+      <p>{t('sidebar.recentEmpty', locale)}</p>
+      <p style={{ fontSize: 12, marginTop: 8 }}>{t('sidebar.recentHint', locale)}</p>
+    </div>
   )
   return (
     <div className="sidebar-tree">
@@ -469,25 +478,26 @@ function RecentPanel({ files, currentFilePath, onFileOpen }: {
   )
 }
 
-function ConfirmDelete({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }): React.JSX.Element {
+function ConfirmDelete({ name, locale, onConfirm, onCancel }: {
+  name: string; locale: Locale; onConfirm: () => void; onCancel: () => void
+}): React.JSX.Element {
   return (
     <div className="confirm-delete">
-      <p className="confirm-delete-msg">Mover <strong>{name}</strong> para a lixeira?</p>
+      <p className="confirm-delete-msg">{t('confirm.trashMsg', locale)} <strong>{name}</strong>?</p>
       <div className="confirm-delete-actions">
-        <button className="confirm-delete-btn" onClick={onCancel}>Cancelar</button>
-        <button className="confirm-delete-btn confirm-delete-btn--danger" onClick={onConfirm}>Mover para lixeira</button>
+        <button className="confirm-delete-btn" onClick={onCancel}>{t('confirm.cancel', locale)}</button>
+        <button className="confirm-delete-btn confirm-delete-btn--danger" onClick={onConfirm}>{t('confirm.trash', locale)}</button>
       </div>
     </div>
   )
 }
 
 const SORT_LABELS: Record<SortMode, string> = { az: 'A→Z', za: 'Z→A', date: '🕐' }
-const SORT_TITLES: Record<SortMode, string> = { az: 'Ordenar A→Z', za: 'Ordenar Z→A', date: 'Ordenar por data' }
 const SORT_NEXT:  Record<SortMode, SortMode> = { az: 'za', za: 'date', date: 'az' }
 
 type Tab = 'files' | 'outline' | 'recent'
 
-export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileOpen, onDirChange, onFileDelete, onFileRename }: SidebarProps): React.JSX.Element {
+export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileOpen, onDirChange, onFileDelete, onFileRename, locale }: SidebarProps): React.JSX.Element {
   const [tab, setTab]                   = useState<Tab>('files')
   const [entries, setEntries]           = useState<FileEntry[]>([])
   const [sortMode, setSortMode]         = useState<SortMode>('az')
@@ -499,7 +509,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
   const [creatingInDir, setCreatingInDir] = useState<CreatingInDir | null>(null)
   const [refreshKey, setRefreshKey]       = useState(0)
   const rootDirPathRef  = useRef<string | null>(null)
-  const [rootDirName, setRootDirName]   = useState<string>('Nenhuma pasta')
+  const [rootDirName, setRootDirName]   = useState<string>('')
   const dragState   = useRef<DragState>({ entry: null, targetPath: null })
   const [, forceUpdate] = useState(0)
 
@@ -517,7 +527,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
   const applyRoot = useCallback((path: string, ents: FileEntry[]) => {
     rootDirPathRef.current = path
     setEntries(ents)
-    setRootDirName(path.split(/[\\/]/).pop() ?? path)
+    setRootDirName(path.split(/[\\\/]/).pop() ?? path)
     onDirChange(path)
   }, [onDirChange])
 
@@ -533,7 +543,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
   useEffect(() => {
     if (!currentFilePath) return
     if (rootDirPathRef.current) return
-    const dir = currentFilePath.replace(/[\\/][^\\/]+$/, '')
+    const dir = currentFilePath.replace(/[\\\/][^\\\/]+$/, '')
     window.api.listDir(dir).then(result => {
       if (result.success && result.entries) applyRoot(dir, result.entries)
     })
@@ -610,7 +620,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
     if (!src) return
     const destDir = targetEntry.isDirectory
       ? targetEntry.path
-      : targetEntry.path.replace(/[\\/][^\\/]+$/, '')
+      : targetEntry.path.replace(/[\\\/][^\\\/]+$/, '')
     const result = await window.api.moveFile(src.path, destDir)
     if (result.success && result.newPath) {
       if (src.path === currentFilePath) onFileRename?.(src.path, result.newPath)
@@ -624,31 +634,36 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
   }, [])
 
   const headerLabel = tab === 'files'
-    ? rootDirName
+    ? (rootDirName || t('sidebar.noFolder', locale))
     : tab === 'recent'
-      ? 'Recentes'
-      : (currentFilePath ? currentFilePath.split(/[\\/]/).pop() : 'Outline')
+      ? t('sidebar.tabRecent', locale)
+      : (currentFilePath ? currentFilePath.split(/[\\\/]/).pop() : t('sidebar.tabOutline', locale))
 
   const rootDirPath = rootDirPathRef.current
+
+  const sortTitles: Record<SortMode, string> = {
+    az: t('sidebar.sortAZ', locale),
+    za: t('sidebar.sortZA', locale),
+    date: t('sidebar.sortDate', locale),
+  }
 
   return (
     <aside className="sidebar">
       <div className="sidebar-tabs">
-        <button className={`sidebar-tab${tab === 'files'   ? ' sidebar-tab--active' : ''}`} onClick={() => setTab('files')}>FILES</button>
-        <button className={`sidebar-tab${tab === 'outline' ? ' sidebar-tab--active' : ''}`} onClick={() => setTab('outline')}>OUTLINE</button>
-        <button className={`sidebar-tab${tab === 'recent'  ? ' sidebar-tab--active' : ''}`} onClick={() => setTab('recent')}>RECENT</button>
-        {tab === 'files' && <button className="sidebar-btn" onClick={handleOpenDir} title="Abrir pasta" style={{ marginLeft: 'auto' }}>⊞</button>}
+        <button className={`sidebar-tab${tab === 'files'   ? ' sidebar-tab--active' : ''}`} onClick={() => setTab('files')}>{t('sidebar.tabFiles', locale)}</button>
+        <button className={`sidebar-tab${tab === 'outline' ? ' sidebar-tab--active' : ''}`} onClick={() => setTab('outline')}>{t('sidebar.tabOutline', locale)}</button>
+        <button className={`sidebar-tab${tab === 'recent'  ? ' sidebar-tab--active' : ''}`} onClick={() => setTab('recent')}>{t('sidebar.tabRecent', locale)}</button>
+        {tab === 'files' && <button className="sidebar-btn" onClick={handleOpenDir} title={t('sidebar.openFolder', locale)} style={{ marginLeft: 'auto' }}>⊞</button>}
       </div>
 
       <div className="sidebar-header">
         <span className="sidebar-title" title={rootDirPath ?? ''}>{headerLabel}</span>
         {tab === 'files' && rootDirPath && (
           <>
-            <button className="sidebar-btn sidebar-sort-btn" title={SORT_TITLES[SORT_NEXT[sortMode]]} onClick={() => setSortMode(SORT_NEXT[sortMode])}>{SORT_LABELS[sortMode]}</button>
-            {/* Botões de view mode — só aparecem com pasta aberta */}
+            <button className="sidebar-btn sidebar-sort-btn" title={sortTitles[SORT_NEXT[sortMode]]} onClick={() => setSortMode(SORT_NEXT[sortMode])}>{SORT_LABELS[sortMode]}</button>
             <button
               className={`sidebar-btn${viewMode === 'tree' ? ' sidebar-btn--active' : ''}`}
-              title="Modo árvore"
+              title={t('sidebar.viewTree', locale)}
               onClick={() => setViewMode('tree')}
               aria-pressed={viewMode === 'tree'}
             >
@@ -656,16 +671,15 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
             </button>
             <button
               className={`sidebar-btn${viewMode === 'flat' ? ' sidebar-btn--active' : ''}`}
-              title="Modo lista plana"
+              title={t('sidebar.viewFlat', locale)}
               onClick={() => setViewMode('flat')}
               aria-pressed={viewMode === 'flat'}
             >
               <IconFlatList />
             </button>
-            {/* Botões de novo arquivo/pasta só no modo tree */}
             {viewMode === 'tree' && (
               <>
-                <button className="sidebar-btn" title="Novo arquivo" onClick={() => { setCreatingRoot('file'); setCreatingInDir(null); setRenamingPath(null) }}>
+                <button className="sidebar-btn" title={t('sidebar.newFile', locale)} onClick={() => { setCreatingRoot('file'); setCreatingInDir(null); setRenamingPath(null) }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                     <path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
                     <path d="M10 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
@@ -673,7 +687,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
                     <line x1="8" y1="7.5" x2="8" y2="11.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
                   </svg>
                 </button>
-                <button className="sidebar-btn" title="Nova pasta" onClick={() => { setCreatingRoot('dir'); setCreatingInDir(null); setRenamingPath(null) }}>
+                <button className="sidebar-btn" title={t('sidebar.newDir', locale)} onClick={() => { setCreatingRoot('dir'); setCreatingInDir(null); setRenamingPath(null) }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                     <path d="M1.5 5A1.5 1.5 0 0 1 3 3.5h3L7.5 5H13A1.5 1.5 0 0 1 14.5 6.5V12A1.5 1.5 0 0 1 13 13.5H3A1.5 1.5 0 0 1 1.5 12V5z" stroke="currentColor" strokeWidth="1.25"/>
                     <line x1="8" y1="7.5" x2="8" y2="10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
@@ -686,12 +700,12 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
         )}
       </div>
 
-      {confirmDelete && <ConfirmDelete name={confirmDelete.name} onConfirm={handleDeleteConfirm} onCancel={() => setConfirmDelete(null)} />}
+      {confirmDelete && <ConfirmDelete name={confirmDelete.name} locale={locale} onConfirm={handleDeleteConfirm} onCancel={() => setConfirmDelete(null)} />}
 
       {tab === 'recent' ? (
-        <RecentPanel files={recentFiles} currentFilePath={currentFilePath} onFileOpen={onFileOpen} />
+        <RecentPanel files={recentFiles} currentFilePath={currentFilePath} locale={locale} onFileOpen={onFileOpen} />
       ) : tab === 'outline' ? (
-        <div className="sidebar-tree"><OutlinePanel markdown={currentMarkdown} /></div>
+        <div className="sidebar-tree"><OutlinePanel markdown={currentMarkdown} locale={locale} /></div>
       ) : (
         viewMode === 'flat' && rootDirPath ? (
           <FlatPanel
@@ -699,19 +713,20 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
             currentFilePath={currentFilePath}
             sortMode={sortMode}
             refreshKey={refreshKey}
+            locale={locale}
             onFileOpen={onFileOpen}
           />
         ) : (
           <div className="sidebar-tree">
             {entries.length === 0 && !creatingRoot ? (
               <div className="sidebar-empty">
-                <p>Nenhuma pasta aberta</p>
-                <button className="sidebar-open-btn" onClick={handleOpenDir}>Abrir pasta</button>
+                <p>{t('sidebar.noFolder', locale)}</p>
+                <button className="sidebar-open-btn" onClick={handleOpenDir}>{t('sidebar.openFolder', locale)}</button>
               </div>
             ) : (
               <>
-                {creatingRoot === 'file' && <InlineInput initialValue="sem-título.md" selectUpToLastDot paddingLeft={12} onConfirm={handleNewFileRoot} onCancel={() => setCreatingRoot(null)} />}
-                {creatingRoot === 'dir'  && <InlineInput initialValue="nova-pasta" paddingLeft={12} onConfirm={handleNewDirRoot} onCancel={() => setCreatingRoot(null)} />}
+                {creatingRoot === 'file' && <InlineInput initialValue={t('sidebar.newFileDefault', locale)} selectUpToLastDot paddingLeft={12} onConfirm={handleNewFileRoot} onCancel={() => setCreatingRoot(null)} />}
+                {creatingRoot === 'dir'  && <InlineInput initialValue={t('sidebar.newDirDefault', locale)} paddingLeft={12} onConfirm={handleNewDirRoot} onCancel={() => setCreatingRoot(null)} />}
                 {sortEntries(entries).map(entry => (
                   <TreeNode key={entry.path} entry={entry} currentFilePath={currentFilePath}
                     onFileClick={handleFileClick}
@@ -721,6 +736,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
                     creatingInDir={creatingInDir} onNewFileConfirm={handleNewFileInDir} onNewDirConfirm={handleNewDirInDir} onNewCancel={() => setCreatingInDir(null)}
                     dragState={dragState} onDragStart={handleDragStart} onDrop={handleDrop} onDragEnd={handleDragEnd}
                     refreshKey={refreshKey}
+                    locale={locale}
                   />
                 ))}
               </>
@@ -731,6 +747,7 @@ export function Sidebar({ currentFilePath, currentMarkdown, recentFiles, onFileO
 
       {contextMenu && (
         <ContextMenu menu={contextMenu}
+          locale={locale}
           onRename={entry => { setRenamingPath(entry.path); setContextMenu(null) }}
           onDelete={entry => { setConfirmDelete(entry); setContextMenu(null) }}
           onReveal={handleReveal} onCopyPath={handleCopyPath}
