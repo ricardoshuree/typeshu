@@ -57,13 +57,11 @@
     },
     "win": {
       "target": ["nsis", "portable"],
-      "icon": "icos/3558103-bowl-food-noodles-ramen-soup_107829.png"
+      "icon": "icos/ramen-bowl.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "icos/3558103-bowl-food-noodles-ramen-soup_107829.png",
-      "uninstallerIcon": "icos/3558103-bowl-food-noodles-ramen-soup_107829.png"
+      "allowToChangeInstallationDirectory": true
     },
     "mac": {
       "target": ["dmg"],

@@ -20,6 +20,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Pillow
+        run: pip install pillow
+
+      - name: Generate ICO from PNG
+        run: python icos/make_ico.py
+
       - name: Build and publish (Windows)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
