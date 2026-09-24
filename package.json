@@ -57,17 +57,17 @@
     },
     "win": {
       "target": ["nsis", "portable"],
-      "icon": "icos/ramen-soup_256.ico"
+      "icon": "icos/ramen-soup_512.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "icos/ramen-soup_256.ico",
-      "uninstallerIcon": "icos/ramen-soup_256.ico"
+      "installerIcon": "icos/ramen-soup_512.ico",
+      "uninstallerIcon": "icos/ramen-soup_512.ico"
     },
     "mac": {
       "target": ["dmg"],
-      "icon": "icos/ramen-soup_256.ico"
+      "icon": "icos/ramen-soup_512.ico"
     },
     "linux": {
       "target": ["AppImage", "deb"]
