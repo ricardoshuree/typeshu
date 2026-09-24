@@ -3,6 +3,7 @@
 import { app, BrowserWindow, shell, session, Menu } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
+import { initAutoUpdater } from './updater'
 import { NOTIFY } from '../shared/types'
 
 const isDev = !app.isPackaged
@@ -55,6 +56,7 @@ app.whenReady().then(async () => {
   })
   registerIpcHandlers()
   createWindow()
+  initAutoUpdater()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 

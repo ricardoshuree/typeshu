@@ -11,6 +11,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "package": "npm run build && electron-builder",
+    "release": "npm run build && electron-builder --publish always",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "@milkdown/react": "^7.5.0",
     "@milkdown/transformer": "^7.5.0",
     "chokidar": "^5.0.0",
+    "electron-updater": "^6.3.9",
     "katex": "^0.18.7",
     "mermaid": "^12.0.0",
     "react": "^18.3.1",
@@ -43,16 +45,29 @@
     "vite": "^5.4.8"
   },
   "build": {
-    "appId": "com.ricardoshure.typeshu",
+    "appId": "com.typeshu.markdown",
     "productName": "TypeShu",
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "ricardoshuree",
+      "repo": "typeshu"
+    },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": ["nsis", "portable"],
+      "icon": "icos/ramen-soup_256.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "icos/ramen-soup_256.ico",
+      "uninstallerIcon": "icos/ramen-soup_256.ico"
     },
     "mac": {
-      "target": ["dmg"]
+      "target": ["dmg"],
+      "icon": "icos/ramen-soup_256.ico"
     },
     "linux": {
       "target": ["AppImage", "deb"]

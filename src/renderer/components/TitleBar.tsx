@@ -220,25 +220,49 @@ export function TitleBar({ onAction, locale }: TitleBarProps): React.JSX.Element
   )
 }
 
-/* ── Ramen icon — solid/filled ───────────────────────────────────────────── */
+/* ── Ramen icon — tigela laranja com espirais de macarrão e hashi ─────────── */
 function RamenIcon() {
   return (
     <svg
       width="18" height="18"
       viewBox="0 0 100 100"
-      fill="currentColor"
       aria-hidden="true"
       style={{ flexShrink: 0 }}
     >
-      <rect x="58" y="4" width="6" height="44" rx="3"
-        transform="rotate(12 61 26)" />
-      <rect x="70" y="4" width="6" height="44" rx="3"
-        transform="rotate(18 73 26)" />
-      <path d="M28 48 A18 18 0 1 1 46 30 A14 14 0 1 0 32 44 A10 10 0 1 1 40 35 A6 6 0 1 0 35 41 Z"
-        fillRule="evenodd" />
-      <rect x="8" y="52" width="84" height="10" rx="5" />
-      <path d="M12 62 Q14 90 50 92 Q86 90 88 62 Z" />
-      <rect x="36" y="90" width="28" height="6" rx="3" />
+      {/* Hashi esquerdo */}
+      <rect
+        x="30" y="2" width="4" height="38" rx="2"
+        fill="#5a3e28"
+        transform="rotate(-10 32 21)"
+      />
+      {/* Hashi direito */}
+      <rect
+        x="44" y="2" width="4" height="38" rx="2"
+        fill="#5a3e28"
+        transform="rotate(6 46 21)"
+      />
+
+      {/* Borda superior da tigela (aba) */}
+      <ellipse cx="50" cy="52" rx="40" ry="7" fill="#e8650a" />
+
+      {/* Corpo da tigela */}
+      <path
+        d="M10 52 Q10 88 50 92 Q90 88 90 52 Z"
+        fill="#f07820"
+      />
+
+      {/* Caldo / superfície do líquido */}
+      <ellipse cx="50" cy="52" rx="36" ry="6" fill="#ffb347" opacity="0.7" />
+
+      {/* Espiral de macarrão — anel externo */}
+      <circle cx="50" cy="52" r="22" fill="none" stroke="#fff8e7" strokeWidth="3.5" strokeDasharray="34 10" />
+      {/* Espiral de macarrão — anel interno */}
+      <circle cx="50" cy="52" r="13" fill="none" stroke="#fff8e7" strokeWidth="3" strokeDasharray="20 8" />
+      {/* Centro */}
+      <circle cx="50" cy="52" r="5" fill="#fff8e7" />
+
+      {/* Base da tigela */}
+      <ellipse cx="50" cy="92" rx="16" ry="4" fill="#c85a08" />
     </svg>
   )
 }
